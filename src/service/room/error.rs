@@ -46,6 +46,13 @@ pub enum Error {
         backtrace: Backtrace,
     },
 
+    #[snafu(display("Room[{room_name}]: Team[{team_name}] failed to create because another team with the same name already exists."))]
+    RoomNameOccupied {
+        room_name: String,
+        team_name: String,
+        backtrace: Backtrace,
+    },
+
     #[snafu(display("Room[{room_name}]: Team[{pending_team}] failed to create, because the room is full."))]
     RoomIsFull {
         room_name: String,

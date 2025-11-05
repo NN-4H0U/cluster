@@ -13,11 +13,9 @@ use crate::service::udp::UdpConnection;
 use super::{Status, Config};
 use super::error::*;
 
-pub const NUM_TEAMS: usize = 2;
-
 #[derive(Default, Debug)]
 pub struct Room {
-    id: Uuid,
+    id:         Uuid,
     config:     Config,
 
     teams:      RwLock<DashMap<String, Team>>,
@@ -27,6 +25,8 @@ pub struct Room {
 }
 
 impl Room {
+    pub const NUM_TEAMS: usize = 2;
+
     pub fn new(config: Config) -> Self {
         Room {
             config,
@@ -39,8 +39,8 @@ impl Room {
         &self.config.name
     }
 
-    pub async fn add_team(&self, side: Option<TeamSide>, config: TeamConfig) -> Result<()> {
-        if self.teams.read().await.len() >= NUM_TEAMS {
+    pub async fn add_team(&self, side: Option<TeamSide>, config: TeamConfig) -> Result<String> {
+        if self.teams.read().await.len() >= Self::NUM_TEAMS {
             debug!("Room[{}]: is Full, cannot add team {}", self.name(), config.name);
             return RoomIsFullSnafu {
                 room_name: self.name().to_string(),
@@ -48,7 +48,7 @@ impl Room {
             }.fail();
         }
 
-        { // [self.teams] WRITE LOCK
+        let team_name = { // [self.teams] WRITE LOCK
             trace!("Room[{}]: trying the lock: `self.teams`", self.name());
             let teams_guard = self.teams.write().await;
             trace!("Room[{}]: got the lock: `self.teams`", self.name());
@@ -57,6 +57,14 @@ impl Room {
                 let mut all_side = {
                     let mut all_side = HashMap::new();
                     for team in teams_guard.iter() {
+                        let team_name = team.name().to_string();
+                        if config.name == team_name {
+                            debug!("Room[{}]: team {} already exists", self.name(), team_name);
+                            return RoomNameOccupiedSnafu {
+                                room_name: self.name().to_string(),
+                                team_name: team_name.to_string(),
+                            }.fail();
+                        }
                         all_side.insert(team.side(), team.name().to_string());
                     }
                     all_side
@@ -64,11 +72,11 @@ impl Room {
 
                 trace!("Room[{}]: all_sides: {:?}", self.name(), all_side);
 
-                if all_side.len() >= NUM_TEAMS {
+                if all_side.len() >= Self::NUM_TEAMS { // racing happened
                     warn!("Room[{}]: is Full, cannot add team {}", self.name(), config.name);
                     return RoomIsFullSnafu {
                         room_name: self.name().to_string(),
-                        pending_team: config.name.to_string(),
+                        pending_team: config.name,
                     }.fail();
                 }
 
@@ -77,7 +85,7 @@ impl Room {
                         if let Some(occupied_team) = all_side.remove(&side) {
                             return RoomSideOccupiedSnafu {
                                 room_name: self.name().to_string(),
-                                pending_team: config.name.to_string(),
+                                pending_team: config.name,
                                 occupied_team,
                                 target_side: side,
                             }.fail();
@@ -90,16 +98,20 @@ impl Room {
                 }
             };
 
-            debug!("Room[{}]: adding team {} to side {}", self.name(), config.name, side);
+            let team_name = config.name.clone();
+
+            debug!("Room[{}]: adding team {} to side {}", self.name(), team_name, side);
 
             teams_guard.insert(
-                config.name.to_string(),
+                team_name.clone(),
                 Team::new(side, config),
             );
 
             trace!("Room[{}]: `self.teams` lock released", self.name());
-        } // [self.teams] WRITE RELEASE
 
-        Ok(())
+            team_name
+        }; // [self.teams] WRITE RELEASE
+
+        Ok(team_name)
     }
 }
