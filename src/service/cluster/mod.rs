@@ -6,13 +6,15 @@ use uuid::Uuid;
 
 use super::team::{self, Team};
 use super::room::{self, Room};
-use super::udp::UdpConnection;
+use crate::service::client::Client;
+
 
 use error::*;
+use crate::model::rcss;
 
 pub struct Cluster {
     rooms: DashMap<Uuid, Room>,
-    clients: DashMap<Uuid, Weak<UdpConnection>>,
+    clients: DashMap<Uuid, Weak<Client>>,
 }
 
 impl Cluster {
@@ -49,4 +51,13 @@ impl Cluster {
     // pub async fn create_client_in_team(&self, room_id: Uuid, team_name: String, config: client::Config) -> Result<Uuid> {
     //     todo!()
     // }
+
+    pub async fn client_send(&self, client_id: Uuid, message: impl rcss::Message) -> Result<()> {
+        let client = self.clients.get(&client_id)
+            .ok_or(ClientNotFoundSnafu { client_id }.build())?;
+
+        let client = client.upgrade().ok_or(ClientNotFoundSnafu { client_id }.build())?;
+        client.send(message).await?;
+        Ok(())
+    }
 }

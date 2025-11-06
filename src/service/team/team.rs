@@ -3,15 +3,16 @@ use std::sync::Arc;
 use uuid::Uuid;
 use dashmap::DashMap;
 use tokio::sync::RwLock;
-
+use crate::service::client::{self, Client};
 use crate::service::team::{Config, Side, Status};
-use crate::service::udp::UdpConnection;
+
+use super::error::{Result};
 
 #[derive(Default, Debug)]
 pub struct Team {
     side:       Side,
     config:     Config,
-    clients:    DashMap<Uuid, Arc<UdpConnection>>,
+    clients:    RwLock<DashMap<Uuid, Arc<Client>>>,
     status:     RwLock<Status>,
 }
 
@@ -24,14 +25,14 @@ impl Team {
         }
     }
 
-    pub async fn reset(&mut self) -> Result<(), ()> {
-        self.clients.clear();
+    pub async fn reset(&mut self) -> Result<()> {
+        self.clients.write().await.clear();
 
         *self.status.write().await = Status::Idle;
         Ok(())
     }
 
-    pub async fn add_client(&mut self) -> Result<Uuid, ()> {
+    pub async fn add_client(&self, config: client::Config) -> Result<Uuid> {
         todo!()
     }
 

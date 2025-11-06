@@ -1,6 +1,6 @@
 use std::backtrace::Backtrace;
 use uuid::Uuid;
-use crate::service::room;
+use crate::service::{client, team, room};
 
 #[derive(snafu::Snafu, Debug)]
 #[snafu(visibility(pub))]
@@ -13,6 +13,29 @@ pub enum Error {
     #[snafu(transparent)]
     Room {
         source: room::Error,
+        backtrace: Backtrace,
+    },
+    
+    #[snafu(display("Cluster: Team[{team_name}] not found in Room[{room_id}]."))]
+    TeamNotFound {
+        room_id: Uuid,
+        team_name: String,
+    },
+    
+    #[snafu(transparent)]
+    Team {
+        source: team::Error,
+        backtrace: Backtrace,
+    },
+    
+    #[snafu(display("Cluster: Client[{client_id}] not found."))]
+    ClientNotFound {
+        client_id: Uuid,
+    },
+    
+    #[snafu(transparent)]
+    Client {
+        source: client::Error,
         backtrace: Backtrace,
     }
 }

@@ -8,7 +8,7 @@ use dashmap::DashMap;
 
 
 use crate::service::team::{Team, Config as TeamConfig, Side as TeamSide};
-use crate::service::udp::UdpConnection;
+use crate::service::client::Client;
 
 use super::{Status, Config};
 use super::error::*;
@@ -19,7 +19,7 @@ pub struct Room {
     config:     Config,
 
     teams:      RwLock<DashMap<String, Team>>,
-    trainer:    DashMap<Uuid, Arc<UdpConnection>>,
+    trainer:    DashMap<Uuid, Arc<Client>>,
 
     status:     Status,
 }
