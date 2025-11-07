@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 
 use uuid::Uuid;
 use dashmap::DashMap;
@@ -12,7 +12,7 @@ use super::error::{Result};
 pub struct Team {
     side:       Side,
     config:     Config,
-    clients:    RwLock<DashMap<Uuid, Arc<Client>>>,
+    clients:    RwLock<DashMap<Uuid, Weak<Client>>>,
     status:     RwLock<Status>,
 }
 
@@ -32,7 +32,7 @@ impl Team {
         Ok(())
     }
 
-    pub async fn add_client(&self, config: client::Config) -> Result<Uuid> {
+    pub async fn add_client(&self, id: Uuid, client: Weak<Client>) -> Result<Uuid> {
         todo!()
     }
 

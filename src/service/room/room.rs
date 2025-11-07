@@ -5,8 +5,7 @@ use log::{debug, trace, warn};
 use uuid::Uuid;
 use tokio::sync::RwLock;
 use dashmap::DashMap;
-
-
+use dashmap::mapref::one::Ref;
 use crate::service::team::{Team, Config as TeamConfig, Side as TeamSide};
 use crate::service::client::Client;
 
@@ -19,6 +18,8 @@ pub struct Room {
     config:     Config,
 
     teams:      RwLock<DashMap<String, Team>>,
+    team_l:     DashMap<String, TeamSide>,
+    team_r:     DashMap<String, TeamSide>,
     trainer:    DashMap<Uuid, Arc<Client>>,
 
     status:     Status,
@@ -113,5 +114,10 @@ impl Room {
         }; // [self.teams] WRITE RELEASE
 
         Ok(team_name)
+    }
+    
+    pub async fn with_team<R: Send + 'static>(&self, team_name: &str, f: impl AsyncFn(Option<Ref<String, Team>>) -> R) -> R {
+        let teams_guard = self.teams.read().await;
+        f(teams_guard.get(team_name)).await
     }
 }
