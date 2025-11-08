@@ -8,6 +8,12 @@ pub enum ClientKind {
     Trainer = 2,
 }
 
+impl Default for ClientKind { 
+    fn default() -> Self {
+        ClientKind::Player
+    }
+}
+
 impl TryFrom<u8> for ClientKind {
     type Error = ();
 

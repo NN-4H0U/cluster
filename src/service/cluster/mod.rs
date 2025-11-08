@@ -1,8 +1,10 @@
 mod error;
 
 use std::sync::Arc;
+use std::time::Duration;
 use dashmap::DashMap;
 use dashmap::mapref::one::Ref;
+use tokio::net::UdpSocket;
 use uuid::Uuid;
 
 use super::team::{self, Team};
@@ -72,11 +74,11 @@ impl Cluster {
     //     Ok(id)
     // }
 
-    pub async fn client_send(&self, client_id: Uuid, message: impl rcss::Message) -> Result<()> {
-        let client = self.clients.get(&client_id)
-            .ok_or(ClientNotFoundSnafu { client_id }.build())?;
-
-        client.send(message).await?;
-        Ok(())
-    }
+    // pub async fn client_send(&self, client_id: Uuid, message: impl rcss::Message) -> Result<()> {
+    //     let client = self.clients.get(&client_id)
+    //         .ok_or(ClientNotFoundSnafu { client_id }.build())?;
+    // 
+    //     client.send(message).await?;
+    //     Ok(())
+    // }
 }

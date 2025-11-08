@@ -1,5 +1,5 @@
 use std::net::SocketAddr;
-
+use log::trace;
 use tokio::net::UdpSocket;
 use snafu::ResultExt;
 
@@ -27,7 +27,18 @@ impl UdpConnection {
         self.socket().recv(buf).await.context(RecvSnafu {})
     }
 
-    pub(super) async fn set_peer(&mut self, peer: SocketAddr) -> UdpResult<()> {
+    pub(super) async fn recv_from(&self, buf: &mut [u8]) -> UdpResult<(usize, SocketAddr)> {
+        self.socket().recv_from(buf).await.context(RecvSnafu {})
+    }
+
+    pub(super) async fn recv_set_peer(&mut self, buf: &mut [u8]) -> UdpResult<usize> {
+        let (len, peer) = self.recv_from(buf).await?;
+        self.set_peer(peer).await?;
+        trace!("UDP[{:?}]: recv len={len}, set peer to [{peer}]", self.socket().local_addr());
+        Ok(len)
+    }
+
+    pub(super) async fn set_peer(&self, peer: SocketAddr) -> UdpResult<()> {
         if self.peer() == peer { return Ok(()) }
         self.socket().connect(peer).await.context(ConnectSnafu { peer })
     }

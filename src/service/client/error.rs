@@ -1,5 +1,8 @@
 use std::backtrace::Backtrace;
 use std::net::SocketAddr;
+use std::sync::Arc;
+
+use tokio::sync::mpsc;
 
 #[derive(snafu::Snafu, Debug)]
 #[snafu(visibility(pub))]
@@ -42,6 +45,41 @@ pub enum Error {
         source: UdpError,
         backtrace: Backtrace,
     },
+
+    #[snafu(display("Client[{client_name}]: Timeout({duration_s} s) waiting an initial message."))]
+    TimeoutInit {
+        client_name: String,
+        duration_s: f32,
+        backtrace: Backtrace,
+    },
+
+    #[snafu(display("Client[{client_name}]: Timeout waiting for UDP response, {source}"))]
+    TimeoutUdp {
+        client_name: String,
+        source: UdpError,
+        backtrace: Backtrace
+    },
+
+    #[snafu(display("Client[{client_name}]: Channel closed unexpectedly."))]
+    ChannelClosed {
+        client_name: String,
+        backtrace: Backtrace
+    },
+
+    #[snafu(display("Client[{client_name}]: Failed to send to channel, {source}"))]
+    ChannelSend {
+        client_name: String,
+        source: mpsc::error::SendError<Arc<str>>,
+        backtrace: Backtrace,
+    },
+
+    #[snafu(display("Client[{client_name}]: Task Join Error in \"{task_desc}\", {source}"))]
+    TaskJoin {
+        client_name: String,
+        task_desc: String,
+        source: tokio::task::JoinError,
+        backtrace: Backtrace,
+    }
     
 }
 
