@@ -12,7 +12,7 @@ use super::error::{Result};
 pub struct Team {
     side:       Side,
     config:     Config,
-    clients:    RwLock<DashMap<Uuid, Weak<Client>>>,
+    clients:    RwLock<DashMap<Uuid, Arc<Client>>>,
     status:     RwLock<Status>,
 }
 
@@ -32,7 +32,7 @@ impl Team {
         Ok(())
     }
 
-    pub async fn add_client(&self, id: Uuid, client: Weak<Client>) -> Result<Uuid> {
+    pub async fn add_client(&self, id: Uuid, client: Arc<Client>) -> Result<Uuid> {
         todo!()
     }
 

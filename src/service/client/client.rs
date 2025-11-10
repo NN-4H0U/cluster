@@ -13,8 +13,7 @@ use super::udp::UdpConnection;
 use super::State;
 use super::state::ClientState;
 use super::error::*;
-use super::{INIT_MSG_TIMEOUT_MS, BUFFER_SIZE};
-
+use super::{INIT_MSG_TIMEOUT_MS, BUFFER_SIZE, CHANNEL_CAPACITY};
 
 type ConsumersDashMap = DashMap<Uuid, mpsc::WeakSender<Arc<str>>>;
 #[derive(Default, Debug)]
@@ -27,12 +26,12 @@ pub struct Client {
 }
 
 impl Client {
-    fn new(config: ClientConfig) -> Self {
+    pub fn new(config: ClientConfig) -> Self {
         Self { config, ..Default::default() }
     }
 
     pub async fn conn(&self) -> Result<JoinHandle<Result<()>>> {
-        let (tx, sender_rx) = mpsc::channel(32);
+        let (tx, sender_rx) = mpsc::channel(CHANNEL_CAPACITY);
         self.tx.set(tx).expect("Client tx OnceLock set failed");
 
         let consumers = self.consumers.clone();

@@ -1,10 +1,8 @@
 mod error;
 
-use std::sync::Arc;
-use std::time::Duration;
+use std::sync::{Arc, Weak};
 use dashmap::DashMap;
 use dashmap::mapref::one::Ref;
-use tokio::net::UdpSocket;
 use uuid::Uuid;
 
 use super::team::{self, Team};
@@ -13,11 +11,10 @@ use super::client::{self, Client};
 
 
 use error::*;
-use crate::model::rcss;
 
 pub struct Cluster {
     rooms: DashMap<Uuid, Room>,
-    clients: DashMap<Uuid, Arc<Client>>,
+    clients: DashMap<Uuid, Weak<Client>>,
 }
 
 impl Cluster {
@@ -41,7 +38,7 @@ impl Cluster {
         Ok(())
     }
 
-    fn room(&self, room_id: Uuid) -> Result<Ref<Uuid, Room>> {
+    fn room(&'_ self, room_id: Uuid) -> Result<Ref<'_, Uuid, Room>> {
         match self.rooms.get(&room_id) {
             Some(room) => Ok(room),
             None => RoomNotFoundSnafu { room_id }.fail(),
@@ -53,26 +50,26 @@ impl Cluster {
         Ok(team_name)
     }
 
-    // pub async fn create_client(&self, room_id: Uuid, team_name: String, config: client::Config) -> Result<Uuid> {
-    //     let team_name = &team_name;
-    //     let (id, client) = self.room(room_id)?.with_team(
-    //         team_name, async move |team| {
-    //             let team = team.ok_or(TeamNotFoundSnafu {
-    //                 room_id, team_name: team_name.to_string()
-    //             }.build())?;
-    //
-    //             let id = Uuid::now_v7();
-    //             let client = Arc::new(Client::conn(config.clone()).await?);
-    //
-    //             team.add_client(id, Arc::downgrade(&client)).await?;
-    //
-    //             Ok::<_, Error>((id, client))
-    //         },
-    //     ).await?;
-    //
-    //     self.clients.insert(id, client);
-    //     Ok(id)
-    // }
+    pub async fn create_client(&self, room_id: Uuid, team_name: String, config: client::Config) -> Result<Uuid> {
+        let team_name = &team_name;
+        let (id, client) = self.room(room_id)?.with_team(
+            team_name, async move |team| {
+                let team = team.ok_or(TeamNotFoundSnafu {
+                    room_id, team_name: team_name.to_string()
+                }.build())?;
+
+                let id = Uuid::now_v7();
+                let client = Arc::new(Client::new(config.clone()));
+                let client_ = Arc::downgrade(&client);
+                team.add_client(id, Arc::clone(&client)).await?;
+
+                Ok::<_, Error>((id, client_))
+            },
+        ).await?;
+
+        self.clients.insert(id, client);
+        Ok(id)
+    }
 
     // pub async fn client_send(&self, client_id: Uuid, message: impl rcss::Message) -> Result<()> {
     //     let client = self.clients.get(&client_id)

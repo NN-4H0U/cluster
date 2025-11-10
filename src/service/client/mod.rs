@@ -14,3 +14,4 @@ pub use client::Client;
 
 pub const INIT_MSG_TIMEOUT_MS: u64 = 5000;
 pub const BUFFER_SIZE: usize = 1500;
+pub const CHANNEL_CAPACITY: usize = 32;
