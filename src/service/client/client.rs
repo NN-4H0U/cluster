@@ -136,7 +136,7 @@ async fn wait_init_msg_from_tx(
         },
         Err(_elapsed) => { // Timeout
             context.state.set(State::Disconnected);
-            Err(TimeoutInitSnafu {
+            Err(TimeoutInitReqSnafu {
                 client_name: context.cfg.name.clone(),
                 duration_s: INIT_MSG_TIMEOUT_MS as f32 / 1000.0,
             }.build())
@@ -171,7 +171,7 @@ async fn wait_init_resp_recv(
         },
         Err(_elapsed) => { // Timeout
             context.state.set(State::Disconnected);
-            Err(TimeoutInitSnafu {
+            Err(TimeoutInitRespSnafu {
                 client_name: context.cfg.name.clone(),
                 duration_s: INIT_MSG_TIMEOUT_MS as f32 / 1000.0,
             }.build())

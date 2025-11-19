@@ -22,3 +22,4 @@ axum = { version = "0.8", features = ["tokio", "ws"] }
 tower-http = { version = "0.6", features = ["trace"] }
 
 env_logger = "0.11"
+strum_macros = "0.27.2"

@@ -54,8 +54,15 @@ impl Response {
         Self::new(get_id(), false, status_code, payload)
     }
     
-    pub fn error(description: &str) -> Self {
-        Self::fail(StatusCode::OK, Some(json!({ "error": description })))
+    pub fn error(err: &str, desc: &str) -> Self {
+        Self::fail(StatusCode::OK, Some(json!({ "error": err, "desc": desc })))
+    }
+    
+    pub fn with_status(self, status_code: StatusCode) -> Self {
+        Self {
+            status_code,
+            ..self
+        }
     }
 }
 

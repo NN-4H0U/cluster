@@ -1,8 +1,12 @@
 use std::backtrace::Backtrace;
+
 use uuid::Uuid;
+use snafu::Snafu;
+use strum_macros::IntoStaticStr;
+
 use crate::service::{client, team, room};
 
-#[derive(snafu::Snafu, Debug)]
+#[derive(Snafu, IntoStaticStr, Debug)]
 #[snafu(visibility(pub))]
 pub enum Error {
     #[snafu(display("Cluster: Room[{room_id}] not found."))]

@@ -3,8 +3,10 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use tokio::sync::mpsc;
+use snafu::Snafu;
+use strum_macros::IntoStaticStr;
 
-#[derive(snafu::Snafu, Debug)]
+#[derive(Snafu, IntoStaticStr, Debug)]
 #[snafu(visibility(pub))]
 pub enum UdpError {
     #[snafu(display("Failed to bind UDP socket on \"{host}\""))]
@@ -36,7 +38,7 @@ pub enum UdpError {
 
 pub type UdpResult<T> = std::result::Result<T, UdpError>;
 
-#[derive(snafu::Snafu, Debug)]
+#[derive(Snafu, IntoStaticStr, Debug)]
 #[snafu(visibility(pub))]
 pub enum Error {
     #[snafu(display("Client[{client_name}]: Udp Error: {source}"))]
@@ -46,17 +48,17 @@ pub enum Error {
         backtrace: Backtrace,
     },
 
-    #[snafu(display("Client[{client_name}]: Timeout({duration_s} s) waiting an initial message."))]
-    TimeoutInit {
+    #[snafu(display("Client[{client_name}]: Timeout({duration_s} s) waiting client to send an initial message."))]
+    TimeoutInitReq {
         client_name: String,
         duration_s: f32,
         backtrace: Backtrace,
     },
 
-    #[snafu(display("Client[{client_name}]: Timeout waiting for UDP response, {source}"))]
-    TimeoutUdp {
+    #[snafu(display("Client[{client_name}]: Timeout({duration_s} s) waiting to recv an initial response."))]
+    TimeoutInitResp {
         client_name: String,
-        source: UdpError,
+        duration_s: f32,
         backtrace: Backtrace
     },
 

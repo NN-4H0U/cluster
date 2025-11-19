@@ -1,10 +1,11 @@
 use std::backtrace::Backtrace;
 use std::net::SocketAddr;
 use snafu::Snafu;
+use strum_macros::IntoStaticStr;
 
 use crate::service::team;
 
-#[derive(Snafu, Debug)]
+#[derive(Snafu, IntoStaticStr, Debug)]
 #[snafu(visibility(pub))]
 pub enum Error {
     #[snafu(display("Missing field \"{field}\" to build Room."))]

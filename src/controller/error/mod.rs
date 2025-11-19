@@ -1,4 +1,7 @@
 mod cluster;
+mod room;
+mod team;
+mod client;
 
 use std::backtrace::Backtrace;
 use axum::http::StatusCode;
@@ -31,6 +34,7 @@ pub enum Error {
         value: String,
     },
 
+    #[snafu(transparent)]
     Cluster {
         source: crate::service::cluster::Error,
     }
