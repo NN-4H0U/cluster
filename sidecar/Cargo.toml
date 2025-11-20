@@ -1,0 +1,11 @@
+[package]
+name = "sidecar"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+thiserror = "2"
+log = "0.4.28"
+
+#agones = "1.53"

@@ -17,10 +17,10 @@ macro_rules! create_config {
         }
 
         impl $ident {
-            pub fn into_args(self) -> Vec<String> {
+            pub fn to_args(&self) -> Vec<String> {
                 let mut args = vec![];
                 $(
-                    if let Some(value) = self.$field {
+                    if let Some(value) = &self.$field {
                         args.push(format!("{}::{} {value}", $namespace, stringify!($field)));
                     }
                 )*
@@ -40,9 +40,9 @@ pub struct Config {
 impl Config {
     pub fn into_args(self) -> Vec<String> {
         let mut args = vec![];
-        args.append(&mut self.server.into_args());
-        args.append(&mut self.player.into_args());
-        args.append(&mut self.csv_saver.into_args());
+        args.append(&mut self.server.to_args());
+        args.append(&mut self.player.to_args());
+        args.append(&mut self.csv_saver.to_args());
         args
     }
 }
