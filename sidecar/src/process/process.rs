@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicU32;
 use std::time::Duration;
 
-use log::{debug, error, info, warn};
+use log::{debug, error, info, trace, warn};
 use nix::sys::signal::{kill, Signal};
 use nix::unistd::Pid;
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -36,8 +36,8 @@ impl ServerProcess {
         let pid = Pid::from_raw(pid as i32);
 
         let (sig_tx, mut sig_rx) = mpsc::channel(4);
-        let (stdout_tx, stdout_rx) = mpsc::channel(16);
-        let (stderr_tx, stderr_rx) = mpsc::channel(16);
+        let (stdout_tx, stdout_rx) = mpsc::channel(32);
+        let (stderr_tx, stderr_rx) = mpsc::channel(32);
 
         let arc_pid_ = Arc::clone(&arc_pid);
         let handle = tokio::spawn(async move {
@@ -69,10 +69,11 @@ impl ServerProcess {
                     result = stdout_reader.next_line() => {
                         match result {
                             Ok(Some(line)) => {
-                                if stdout_tx.send(line).await.is_err() {
-                                    // Channel closed, probably the receiver was dropped.
-                                    break;
-                                }
+                                trace!("stdout: {}", line);
+                                // if stdout_tx.send(line).await.is_err() {
+                                //     // Channel closed, probably the receiver was dropped.
+                                //     break;
+                                // }
                             }
                             Ok(None) => break, // stdout closed
                             Err(e) => {
@@ -85,9 +86,10 @@ impl ServerProcess {
                     result = stderr_reader.next_line() => {
                         match result {
                             Ok(Some(line)) => {
-                                if stderr_tx.send(line).await.is_err() {
-                                    break;
-                                }
+                                trace!("stderr: {}", line);
+                                // if stderr_tx.send(line).await.is_err() {
+                                //     break;
+                                // }
                             }
                             Ok(None) => break, // stderr closed
                             Err(e) => {
@@ -113,25 +115,34 @@ impl ServerProcess {
         })
     }
 
-    pub async fn terminate(self) -> Result<ExitStatus> {
-        let signal = Signal::SIGTERM;
+    pub async fn shutdown(self) -> Result<ExitStatus> {
+        let signal = Signal::SIGINT;
 
-        self.sig_tx.send(signal).await.map_err(Error::SignalSend)?;
-        let (status, child) = tokio::time::timeout(Self::TERM_TIMEOUT_S, self.handle).await
-            .map_err(Error::ProcessJoinTimeout)?
-            .map_err(Error::ProcessJoin)?;
+        let join_result = match self.sig_tx.send(signal).await {
+            Ok(_) => tokio::time::timeout(Self::TERM_TIMEOUT_S, self.handle).await
+                .map_err(Error::ProcessJoinTimeout)?,
+            Err(e) => {
+                // should be due to channel close, check if the process is finished
+                if !self.handle.is_finished() {
+                    return Err(Error::SignalSend(e))
+                }
+                self.handle.await
+            },
+        };
+
+        let (status, child) = join_result.map_err(Error::ProcessJoin)?;
 
         let status = match status {
             Ok(status) => {
                 if status.success() {
-                    debug!("RcssServer::terminate: process exited successfully");
+                    debug!("RcssServer::shutdown: process exited successfully");
                 } else {
-                    warn!("RcssServer::terminate: process exited with status: {status:?}");
+                    warn!("RcssServer::shutdown: process exited with status: {status:?}");
                 }
                 status
             },
             Err(e) => {
-                warn!("RcssServer::terminate: wait on process exits with error, trying KILL...");
+                warn!("RcssServer::shutdown: wait on process exits with error, trying KILL...");
 
                 let mut child = child;
                 let pid = child.id();
@@ -140,7 +151,7 @@ impl ServerProcess {
                     let Ok(_) = kill(Pid::from_raw(pid as i32), Signal::SIGKILL) &&
                     let Ok(status) = child.wait().await // todo!("timeout")
                 {
-                    warn!("RcssServer::terminate: process KILLed successfully with pid: {}", pid);
+                    warn!("RcssServer::shutdown: process KILLed successfully with pid: {}", pid);
                     status
                 } else {
                     return Err(Error::FatalProcessWindingUp {
