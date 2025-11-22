@@ -15,6 +15,15 @@ macro_rules! create_config {
                 pub $field: Option<$value>,
             )*
         }
+        
+        impl $ident {
+            $(
+                pub fn $field(&mut self, value: $value) -> &mut Self {
+                    self.$field = Some(value);
+                    self
+                }
+            )*
+        }
 
         impl $ident {
             pub fn to_args(&self) -> Vec<String> {
