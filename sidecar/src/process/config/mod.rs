@@ -30,7 +30,7 @@ macro_rules! create_config {
                 let mut args = vec![];
                 $(
                     if let Some(value) = &self.$field {
-                        args.push(format!("{}::{} {value}", $namespace, stringify!($field)));
+                        args.push(format!("{}::{}={value}", $namespace, stringify!($field)));
                     }
                 )*
                 args
