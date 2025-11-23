@@ -12,7 +12,7 @@ async fn processes_spawn_and_shutdown_1k() {
 
     for mut ports in (6000..=9000).chunks(3).into_iter() {
         if let Some((server, coach, sidecar)) = ports.next_tuple() {
-            builder.with_ports(server, coach, sidecar);
+            builder.config.with_ports(server, coach, sidecar);
         } else { break }
 
         let process = builder.spawn().await.unwrap();

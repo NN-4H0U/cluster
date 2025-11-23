@@ -1,15 +1,18 @@
 pub mod server;
 pub mod player;
 pub mod csv_saver;
+mod config;
 
 pub use server::ServerConfig;
 pub use player::PlayerConfig;
 pub use csv_saver::CsvSaverConfig;
 
+pub use config::Config;
+
 #[macro_export]
 macro_rules! create_config {
     ($ident:ident, $namespace:literal, {$($field:ident: $value:ty),+$(,)?}) => {
-        #[derive(Debug, Default)]
+        #[derive(Clone, Debug, Default)]
         pub struct $ident {
             $(
                 pub $field: Option<$value>,
@@ -36,22 +39,5 @@ macro_rules! create_config {
                 args
             }
         }
-    }
-}
-
-#[derive(Default, Debug)]
-pub struct Config {
-    pub server: ServerConfig,
-    pub player: PlayerConfig,
-    pub csv_saver: CsvSaverConfig,
-}
-
-impl Config {
-    pub fn into_args(self) -> Vec<String> {
-        let mut args = vec![];
-        args.append(&mut self.server.to_args());
-        args.append(&mut self.player.to_args());
-        args.append(&mut self.csv_saver.to_args());
-        args
     }
 }
