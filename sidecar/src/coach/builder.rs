@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 use common::client;
 use super::OfflineCoach;
 
-pub const DEFAULT_LOCAL_TRAINER_PORT: u16 = 6002;
+pub const DEFAULT_LOCAL_TRAINER_PORT: u16 = 6001;
 
 #[derive(Debug)]
 pub struct OfflineCoachBuilder {

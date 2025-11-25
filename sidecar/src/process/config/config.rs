@@ -32,6 +32,14 @@ impl Config {
         args
     }
 
+    pub fn default_trainer_on() -> Self {
+        let mut ret = Self::default();
+        ret.server_then(|cfg| {
+            cfg.coach(true).coach_w_referee(true);
+        });
+        ret
+    }
+
     pub fn with_ports(&mut self, port: u16, coach_port: u16, olcoach_port: u16) -> &mut Self {
         self.server_then(|c| {
             c.port(port).coach_port(coach_port).olcoach_port(olcoach_port);

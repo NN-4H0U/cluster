@@ -16,7 +16,7 @@ impl ServerProcessSpawner {
         Self::validate(pgm_name).await;
         Self {
             pgm_name,
-            config: Config::default(),
+            config: Config::default_trainer_on(),
         }
     }
 
@@ -39,7 +39,8 @@ impl ServerProcessSpawner {
     }
 
     fn build_start_cmd(&self) -> Command {
-        let mut cmd = Command::new(self.pgm_name);
+        let mut cmd = Command::new("stdbuf");
+        cmd.arg("-oL").arg("-eL").arg(self.pgm_name);
         cmd.args(&self.config.to_args());
         cmd
     }
