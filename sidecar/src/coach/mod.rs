@@ -2,6 +2,8 @@ mod coach;
 pub mod signal;
 mod error;
 mod builder;
+mod resolver;
+mod addon;
 
 use common::client;
 

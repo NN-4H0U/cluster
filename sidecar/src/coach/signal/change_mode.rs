@@ -18,7 +18,7 @@ impl super::Signal for SignalChangeMode {
     }
     
     fn encode(&self) -> ArcStr {
-        format!("(change_mode {})", self.play_mode.encode())
+        format!("({} {})", self.kind().encode(), self.play_mode.encode())
     }
 
     fn parse_ret_err(tokens: &[&str]) -> Option<Self::Error> {

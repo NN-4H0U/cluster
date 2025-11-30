@@ -9,6 +9,8 @@ mod recover;
 mod start;
 mod team_names;
 
+use std::str::FromStr;
+use std::any::Any;
 use arcstr::{ArcStr, format, literal};
 
 pub use change_mode::SignalChangeMode as ChangeMode;
@@ -51,3 +53,112 @@ pub enum SignalKind {
     TeamNames,
 }
 
+impl SignalKind {
+    pub fn encode(&self) -> ArcStr {
+        match self {
+            SignalKind::ChangeMode => literal!("change_mode"),
+            SignalKind::Move       => literal!("move"),
+            SignalKind::CheckBall  => literal!("check_ball"),
+            SignalKind::Start      => literal!("start"),
+            SignalKind::Recover    => literal!("recover"),
+            SignalKind::Ear        => literal!("ear"),
+            SignalKind::Init       => literal!("init"),
+            SignalKind::Look       => literal!("look"),
+            SignalKind::Eye        => literal!("eye"),
+            SignalKind::TeamNames  => literal!("team_names"),
+        }
+    }
+
+    pub fn decode(s: &str) -> Option<Self> {
+        match s {
+            "change_mode" => Some(SignalKind::ChangeMode),
+            "move"        => Some(SignalKind::Move),
+            "check_ball"  => Some(SignalKind::CheckBall),
+            "start"       => Some(SignalKind::Start),
+            "recover"     => Some(SignalKind::Recover),
+            "ear"         => Some(SignalKind::Ear),
+            "init"        => Some(SignalKind::Init),
+            "look"        => Some(SignalKind::Look),
+            "eye"         => Some(SignalKind::Eye),
+            "team_names"  => Some(SignalKind::TeamNames),
+            _             => None,
+        }
+    }
+
+    pub fn parse_ret_ok(&self, tokens: &[&str]) -> Option<Box<dyn Any + Send>> {
+        match self {
+            SignalKind::ChangeMode => {
+                ChangeMode::parse_ret_ok(tokens).map(|r| Box::new(r) as Box<dyn Any + Send>)
+            },
+            SignalKind::Move => {
+                Move::parse_ret_ok(tokens).map(|r| Box::new(r) as Box<dyn Any + Send>)
+            },
+            SignalKind::CheckBall => {
+                CheckBall::parse_ret_ok(tokens).map(|r| Box::new(r) as Box<dyn Any + Send>)
+            },
+            SignalKind::Start => {
+                Start::parse_ret_ok(tokens).map(|r| Box::new(r) as Box<dyn Any + Send>)
+            },
+            SignalKind::Recover => {
+                Recover::parse_ret_ok(tokens).map(|r| Box::new(r) as Box<dyn Any + Send>)
+            },
+            SignalKind::Ear => {
+                Ear::parse_ret_ok(tokens).map(|r| Box::new(r) as Box<dyn Any + Send>)
+            },
+            SignalKind::Init => {
+                Init::parse_ret_ok(tokens).map(|r| Box::new(r) as Box<dyn Any + Send>)
+            },
+            SignalKind::Look => {
+                Look::parse_ret_ok(tokens).map(|r| Box::new(r) as Box<dyn Any + Send>)
+            },
+            SignalKind::Eye => {
+                Eye::parse_ret_ok(tokens).map(|r| Box::new(r) as Box<dyn Any + Send>)
+            },
+            SignalKind::TeamNames => {
+                TeamNames::parse_ret_ok(tokens).map(|r| Box::new(r) as Box<dyn Any + Send>)
+            },
+        }
+    }
+
+    pub fn parse_ret_err(&self, tokens: &[&str]) -> Option<Box<dyn Any + Send>> {
+        match self {
+            SignalKind::ChangeMode => {
+                ChangeMode::parse_ret_err(tokens).map(|e| Box::new(e) as Box<dyn Any + Send>)
+            },
+            SignalKind::Move => {
+                Move::parse_ret_err(tokens).map(|e| Box::new(e) as Box<dyn Any + Send>)
+            },
+            SignalKind::CheckBall => {
+                CheckBall::parse_ret_err(tokens).map(|e| Box::new(e) as Box<dyn Any + Send>)
+            },
+            SignalKind::Start => {
+                Start::parse_ret_err(tokens).map(|e| Box::new(e) as Box<dyn Any + Send>)
+            },
+            SignalKind::Recover => {
+                Recover::parse_ret_err(tokens).map(|e| Box::new(e) as Box<dyn Any + Send>)
+            },
+            SignalKind::Ear => {
+                Ear::parse_ret_err(tokens).map(|e| Box::new(e) as Box<dyn Any + Send>)
+            },
+            SignalKind::Init => {
+                Init::parse_ret_err(tokens).map(|e| Box::new(e) as Box<dyn Any + Send>)
+            },
+            SignalKind::Look => {
+                Look::parse_ret_err(tokens).map(|e| Box::new(e) as Box<dyn Any + Send>)
+            },
+            SignalKind::Eye => {
+                Eye::parse_ret_err(tokens).map(|e| Box::new(e) as Box<dyn Any + Send>)
+            },
+            SignalKind::TeamNames => {
+                TeamNames::parse_ret_err(tokens).map(|e| Box::new(e) as Box<dyn Any + Send>)
+            },
+        }
+    }
+}
+
+impl FromStr for SignalKind {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, <SignalKind as FromStr>::Err> {
+        SignalKind::decode(s).ok_or(())
+    }
+}

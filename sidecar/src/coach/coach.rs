@@ -1,18 +1,24 @@
-use dashmap::DashMap;
-use std::collections::VecDeque;
 use std::net::SocketAddr;
-use std::str::FromStr;
 use std::sync::Arc;
-use tokio::sync::{mpsc, oneshot};
+
+use tokio::sync::mpsc;
+use dashmap::DashMap;
 use arcstr::ArcStr;
+use log::debug;
 use uuid::Uuid;
-use crate::coach::signal::{Signal, SignalKind};
+
+use common::client::TxMessage;
+
 use super::{client, signal};
+use super::addon::AddOn;
+use super::signal::Signal;
+use super::resolver::CallResolver;
 use super::{Error, Result, Builder};
 
 #[derive(Debug)]
 pub struct OfflineCoach {
     conn: client::Client,
+    addons: DashMap<&'static str, Box<dyn AddOn>>
 }
 
 impl OfflineCoach {
@@ -32,22 +38,31 @@ impl OfflineCoach {
         config.peer = peer;
 
         let conn = client::Client::new(config.build());
-        Self { conn }
+        Self { conn, addons: DashMap::new() }
     }
     
     pub fn from_client_config(config: client::Config) -> Self {
         assert_eq!(config.kind, client::Kind::Trainer, "ClientKind::Trainer expected");
         let conn = client::Client::new(config);
-        Self { conn }
+        Self { conn, addons: DashMap::new() }
     }
 
-    pub async fn connect(&mut self) -> Result<()> {
+    fn add_addon<A: AddOn>(&self, name: &'static str) -> Uuid {
+        let (tx, rx) = mpsc::channel(32);
+        let id = self.conn.subscribe(tx);
+        self.addons.insert(name, Box::new(A::new(self.conn.sender(), rx)));
+
+        id
+    }
+
+    pub async fn connect(&self) -> Result<()> {
         self.conn.connect().await.expect("Failed to connect");
+        self.add_addon::<CallResolver>("call_resolver");
         self.send_ctrl(signal::Init { version: Some(5) }).await.expect("Failed to send init signal");
         Ok(())
     }
 
-    pub fn sender(&self) -> mpsc::WeakSender<client::Signal> {
+    pub fn sender(&self) -> mpsc::WeakSender<TxMessage> {
         self.conn.sender()
     }
 

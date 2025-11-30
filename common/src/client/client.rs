@@ -15,15 +15,15 @@ use super::{INIT_MSG_TIMEOUT_MS, BUFFER_SIZE, CHANNEL_CAPACITY};
 use crate::udp::UdpConnection;
 
 pub type ClientBuilder = super::config::ClientConfigBuilder;
-pub type ClientSendMessage = Signal;
-pub type ClientSubscribeMessage = ArcStr;
+pub type ClientTxMessage = Signal;
+pub type ClientRxMessage = ArcStr;
 
-type ConsumersDashMap = DashMap<Uuid, mpsc::Sender<ClientSubscribeMessage>>;
+type ConsumersDashMap = DashMap<Uuid, mpsc::Sender<ClientRxMessage>>;
 #[derive(Default, Debug)]
 pub struct Client {
     config: Config,
     handle: OnceLock<JoinHandle<Result<()>>>,
-    tx:     OnceLock<mpsc::Sender<ClientSendMessage>>,
+    tx:     OnceLock<mpsc::Sender<ClientTxMessage>>,
     status: Arc<AtomicStatus>,
 
     consumers:  Arc<ConsumersDashMap>,
@@ -40,7 +40,7 @@ impl Client {
         Self { config, ..Default::default() }
     }
 
-    pub async fn connect(&mut self) -> Result<()> {
+    pub async fn connect(&self) -> Result<()> {
         let (tx, sender_rx) = mpsc::channel(CHANNEL_CAPACITY);
         if let Err(_) = self.tx.set(tx) {
             return Err(Error::AlreadyConnected {
@@ -74,18 +74,18 @@ impl Client {
         Ok(())
     }
 
-    pub async fn send(&self, signal: ClientSendMessage) -> Result<()> {
+    pub async fn send(&self, signal: ClientTxMessage) -> Result<()> {
         self.tx.get().unwrap().send(signal).await
             .map_err(|e| Error::ChannelSend { client_name: self.config.name.clone(), source: e })?;
 
         Ok(())
     }
     
-    pub fn sender(&self) -> mpsc::WeakSender<ClientSendMessage> {
+    pub fn sender(&self) -> mpsc::WeakSender<ClientTxMessage> {
         self.tx.get().unwrap().clone().downgrade()
     }
 
-    pub fn subscribe(&self, tx: mpsc::Sender<ClientSubscribeMessage>) -> Uuid {
+    pub fn subscribe(&self, tx: mpsc::Sender<ClientRxMessage>) -> Uuid {
         let id = Uuid::now_v7();
         self.consumers.insert(id, tx);
         id
@@ -107,9 +107,9 @@ impl Client {
         let mut handle = self.handle.take()
             .expect("WTF? Client handle OnceLock get failed");
 
-        if let Err(_e) = self.send(ClientSendMessage::Shutdown).await {
+        if let Err(_e) = self.send(ClientTxMessage::Shutdown).await {
             // channel closed here, maybe already closed
-            info!("Client[{}]: channel closed while trying to send ClientSendMessage::Shutdown", self.name());
+            info!("Client[{}]: channel closed while trying to send ClientTxMessage::Shutdown", self.name());
         }
 
         match tokio::time::timeout(Self::SHUTDOWN_TIMEOUT, &mut handle).await {
@@ -169,7 +169,7 @@ struct Context {
 }
 
 async fn run_debug(
-    sender_rx: mpsc::Receiver<ClientSendMessage>,
+    sender_rx: mpsc::Receiver<ClientTxMessage>,
     consumers: Arc<ConsumersDashMap>,
     context: Context,
 ) -> Result<()> {
@@ -179,7 +179,7 @@ async fn run_debug(
 }
 
 async fn run(
-    mut sender_rx: mpsc::Receiver<ClientSendMessage>,
+    mut sender_rx: mpsc::Receiver<ClientTxMessage>,
     consumers: Arc<ConsumersDashMap>,
     context: Context,
 ) -> Result<()> {
@@ -208,16 +208,16 @@ async fn run(
 }
 
 async fn wait_init_msg_from_tx(
-    rx: &mut mpsc::Receiver<ClientSendMessage>,
+    rx: &mut mpsc::Receiver<ClientTxMessage>,
     context: &Context,
-) -> Result<ClientSubscribeMessage> {
+) -> Result<ClientRxMessage> {
     let msg = tokio::time::timeout(
         Duration::from_millis(INIT_MSG_TIMEOUT_MS), rx.recv(),
     ).await;
 
     match msg {
-        Ok(Some(ClientSendMessage::Data(msg))) => Ok(msg),
-        Ok(Some(ClientSendMessage::Shutdown)) => {
+        Ok(Some(ClientTxMessage::Data(msg))) => Ok(msg),
+        Ok(Some(ClientTxMessage::Shutdown)) => {
             context.status.set(StatusKind::Disconnected);
             Err(Error::ChannelClosed {
                 client_name: context.cfg.name.clone()
@@ -244,7 +244,7 @@ async fn wait_init_resp_recv(
     udp_conn: &mut UdpConnection,
     peer_addr: SocketAddr,
     context: &Context,
-) -> Result<ClientSubscribeMessage> {
+) -> Result<ClientRxMessage> {
     let mut buf = [0u8; BUFFER_SIZE];
 
 
@@ -281,7 +281,7 @@ async fn wait_init_resp_recv(
 }
 
 async fn sync_messages(
-    msg: &ClientSubscribeMessage, consumers: &ConsumersDashMap, context: &Context,
+    msg: &ClientRxMessage, consumers: &ConsumersDashMap, context: &Context,
 ) -> Result<usize> {
     let mut tasks = Vec::with_capacity(consumers.len());
 
@@ -314,7 +314,7 @@ async fn sync_messages(
 }
 
 async fn listen_and_transmit(
-    mut rx: mpsc::Receiver<ClientSendMessage>,
+    mut rx: mpsc::Receiver<ClientTxMessage>,
     udp: Arc<UdpConnection>,
     consumers: Arc<ConsumersDashMap>,
     context: Context,
@@ -326,8 +326,8 @@ async fn listen_and_transmit(
     let mut udp_send_task = tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
             match msg {
-                ClientSendMessage::Shutdown => break,
-                ClientSendMessage::Data(msg) => {
+                ClientTxMessage::Shutdown => break,
+                ClientTxMessage::Data(msg) => {
                     udp_.send(msg.as_bytes()).await
                         .map_err(|e| Error::Udp { client_name: context_.cfg.name.clone(), source: e })?;
                 }
