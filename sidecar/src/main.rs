@@ -21,7 +21,7 @@ async fn main() {
     let builder = sidecar::Server::spawner().await;
     let mut server = builder.spawn().await.unwrap();
 
-    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
 
     let ret = server.shutdown().await.unwrap();
 }

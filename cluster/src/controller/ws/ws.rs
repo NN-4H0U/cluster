@@ -61,7 +61,7 @@ async fn handle_upgrade(socket: WebSocket, cluster: Arc<Cluster>, client_id: Uui
                 signal.to_string().into()
             };
 
-            client.send(client::Signal::Data(msg)).await.context(ClientSendSnafu { client_id })?;
+            client.send_data(msg).await.context(ClientSendSnafu { client_id })?;
         }
         Ok::<_, Error>(())
     });

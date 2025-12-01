@@ -1,15 +1,15 @@
 use std::str::FromStr;
 
 use arcstr::{ArcStr, literal};
-use crate::coach::signal::SignalKind;
+use crate::coach::command::CommandKind;
 
-pub struct SignalTeamNames;
-impl super::Signal for SignalTeamNames {
+pub struct CommandTeamNames;
+impl super::Command for CommandTeamNames {
     type Ok = (Option<String>, Option<String>); // (left_team_name, right_team_name)
-    type Error = SignalTeamNamesError;
+    type Error = CommandTeamNamesError;
 
-    fn kind(&self) -> SignalKind {
-        SignalKind::TeamNames
+    fn kind(&self) -> CommandKind {
+        CommandKind::TeamNames
     }
 
     fn encode(&self) -> ArcStr {
@@ -47,11 +47,11 @@ impl super::Signal for SignalTeamNames {
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum SignalTeamNamesError {}
+pub enum CommandTeamNamesError {}
 
-impl FromStr for SignalTeamNamesError {
+impl FromStr for CommandTeamNamesError {
     type Err = ();
-    fn from_str(s: &str) -> Result<Self, <SignalTeamNamesError as FromStr>::Err> {
+    fn from_str(s: &str) -> Result<Self, <CommandTeamNamesError as FromStr>::Err> {
         match s {
             _ => Err(()),
         }

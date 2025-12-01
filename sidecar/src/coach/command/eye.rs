@@ -3,18 +3,18 @@ use std::str::FromStr;
 use arcstr::{ArcStr, format};
 use common::types::EyeMode;
 
-use super::SignalKind;
+use super::CommandKind;
 
-pub struct SignalEye {
+pub struct CommandEye {
     pub mode: EyeMode,
 }
 
-impl super::Signal for SignalEye {
+impl super::Command for CommandEye {
     type Ok = EyeMode;
-    type Error = SignalEyeError;
+    type Error = CommandEyeError;
 
-    fn kind(&self) -> SignalKind {
-        SignalKind::Eye
+    fn kind(&self) -> CommandKind {
+        CommandKind::Eye
     }
     fn encode(&self) -> ArcStr {
         format!("(eye {})", self.mode.encode())
@@ -35,16 +35,16 @@ impl super::Signal for SignalEye {
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum SignalEyeError {
+pub enum CommandEyeError {
     #[error("MODE did not match on or off.")]
     IllegalMode,
     #[error("The MODE argument was omitted.")]
     IllegalCommandForm,
 }
 
-impl FromStr for SignalEyeError {
+impl FromStr for CommandEyeError {
     type Err = ();
-    fn from_str(s: &str) -> Result<Self, <SignalEyeError as FromStr>::Err> {
+    fn from_str(s: &str) -> Result<Self, <CommandEyeError as FromStr>::Err> {
         match s {
             "illegal_mode" => Ok(Self::IllegalMode),
             "illegal_command_form" => Ok(Self::IllegalCommandForm),

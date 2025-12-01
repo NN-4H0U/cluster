@@ -6,7 +6,8 @@ impl Into<Response> for &Error {
         use axum::http::StatusCode;
 
         match self {
-            Error::ChannelSend { .. }
+            Error::ChannelSendData { .. }
+                | Error::ChannelSendSignal { .. }
                 | Error::ChannelClosed { .. }
                 | Error::TaskJoin { .. }
                 | Error::Udp { .. }

@@ -30,10 +30,16 @@ pub enum Error {
         client_name: String,
     },
 
-    #[error("Client[{client_name}]: Failed to send to channel, {source}")]
-    ChannelSend {
+    #[error("Client[{client_name}]: Failed to send signal to channel, {source}")]
+    ChannelSendSignal {
         client_name: String,
         source: mpsc::error::SendError<client::Signal>,
+    },
+
+    #[error("Client[{client_name}]: Failed to send data to channel, {source}")]
+    ChannelSendData {
+        client_name: String,
+        source: mpsc::error::SendError<client::TxData>,
     },
 
     #[error("Client[{client_name}]: Task Join Error in \"{task_desc}\", {source}")]

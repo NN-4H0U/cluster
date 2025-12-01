@@ -1,15 +1,15 @@
 use std::str::FromStr;
 
 use arcstr::{ArcStr, literal};
-use crate::coach::signal::SignalKind;
+use crate::coach::command::CommandKind;
 
-pub struct SignalLook;
-impl super::Signal for SignalLook {
+pub struct CommandLook;
+impl super::Command for CommandLook {
     type Ok = ();
-    type Error = SignalLookError;
+    type Error = CommandLookError;
 
-    fn kind(&self) -> SignalKind {
-        SignalKind::Look
+    fn kind(&self) -> CommandKind {
+        CommandKind::Look
     }
 
     fn encode(&self) -> ArcStr {
@@ -24,11 +24,11 @@ impl super::Signal for SignalLook {
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum SignalLookError {}
+pub enum CommandLookError {}
 
-impl FromStr for SignalLookError {
+impl FromStr for CommandLookError {
     type Err = ();
-    fn from_str(s: &str) -> Result<Self, <SignalLookError as FromStr>::Err> {
+    fn from_str(s: &str) -> Result<Self, <CommandLookError as FromStr>::Err> {
         match s {
             _ => Err(()),
         }

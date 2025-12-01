@@ -3,18 +3,18 @@ use std::str::FromStr;
 use arcstr::{ArcStr, format};
 use common::types::EarMode;
 
-use super::SignalKind;
+use super::CommandKind;
 
-pub struct SignalEar{
+pub struct CommandEar{
     pub mode: EarMode,
 }
 
-impl super::Signal for SignalEar {
+impl super::Command for CommandEar {
     type Ok = EarMode;
-    type Error = SignalEarError;
+    type Error = CommandEarError;
 
-    fn kind(&self) -> SignalKind {
-        SignalKind::Ear
+    fn kind(&self) -> CommandKind {
+        CommandKind::Ear
     }
     fn encode(&self) -> ArcStr {
         format!("(ear {})", self.mode.encode())
@@ -32,16 +32,16 @@ impl super::Signal for SignalEar {
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum SignalEarError {
+pub enum CommandEarError {
     #[error("MODE did not match on or off.")]
     IllegalMode,
     #[error("The MODE argument was omitted.")]
     IllegalCommandForm,
 }
 
-impl FromStr for SignalEarError {
+impl FromStr for CommandEarError {
     type Err = ();
-    fn from_str(s: &str) -> Result<Self, <SignalEarError as FromStr>::Err> {
+    fn from_str(s: &str) -> Result<Self, <CommandEarError as FromStr>::Err> {
         match s {
             "illegal_mode" => Ok(Self::IllegalMode),
             "illegal_command_form" => Ok(Self::IllegalCommandForm),

@@ -7,19 +7,31 @@ use dashmap::DashMap;
 use log::debug;
 
 use tokio::sync::{mpsc, oneshot};
+use common::client::{TxData, RxData, TxSignal};
 use super::addon::AddOn;
-use super::signal::{Signal, SignalKind};
-use super::client::{TxMessage, RxMessage};
+use super::command::{Command, CommandKind};
 
 #[derive(Clone, Debug)]
 pub struct CallResolver {
     rx: Arc<Receiver>,
+    tx: mpsc::Sender<ArcStr>,
 }
 
 impl CallResolver {
-    pub fn new(receiver: mpsc::Receiver<ArcStr>) -> Self {
+    pub fn from_rx(receiver: mpsc::Receiver<ArcStr>) -> Self {
+        let (tx, rx_channel) = mpsc::channel(32);
         let rx = Arc::new(Receiver::new(receiver));
-        Self { rx }
+        Self { rx, tx: tx.clone() }
+    }
+
+    pub fn new(buffer: usize) -> Self {
+        let (tx, rx) = mpsc::channel(buffer);
+        let rx = Arc::new(Receiver::new(rx));
+        Self { rx, tx }
+    }
+
+    pub fn ingest_tx(&self) -> mpsc::Sender<ArcStr> {
+        self.tx.clone()
     }
 
     pub fn sender(&self, tx: mpsc::Sender<ArcStr>) -> Sender {
@@ -29,14 +41,23 @@ impl CallResolver {
     pub fn weak(&self, tx: mpsc::WeakSender<ArcStr>) -> WeakSender {
         WeakSender::new(tx, Arc::clone(&self.rx))
     }
+
+    pub fn close(&self) -> () {
+        self.rx.close()
+    }
 }
 
 impl AddOn for CallResolver {
     fn new(
-        _: mpsc::WeakSender<TxMessage>,
-        receiver: mpsc::Receiver<RxMessage>
+        _: mpsc::Sender<TxSignal>,
+        _: mpsc::Sender<TxData>,
+        data_rx: mpsc::Receiver<RxData>
     ) -> Self where Self: Sized {
-        Self::new(receiver)
+        Self::from_rx(data_rx)
+    }
+
+    fn close(&self) {
+        CallResolver::close(&self);
     }
 }
 
@@ -45,7 +66,7 @@ struct Receiver {
     recv_task: tokio::task::JoinHandle<()>,
 
     queue: Arc<DashMap<
-        SignalKind,
+        CommandKind,
         VecDeque<oneshot::Sender<Result<Box<dyn Any + Send>, Box<dyn Any + Send>>>>
     >>,
 }
@@ -53,7 +74,7 @@ struct Receiver {
 impl Receiver {
     fn new(mut receiver: mpsc::Receiver<ArcStr>) -> Self {
         let tasks: Arc<DashMap<
-            SignalKind,
+            CommandKind,
             VecDeque<
                 oneshot::Sender<
                     Result<
@@ -67,17 +88,20 @@ impl Receiver {
         let tasks_ = Arc::clone(&tasks);
         let recv_task = tokio::spawn(async move {
             while let Some(raw_msg) = receiver.recv().await {
-                let msg = raw_msg.trim();
+                let msg = raw_msg.trim().trim_end_matches('\0');
                 if msg.is_empty() || !msg.starts_with('(') || !msg.ends_with(')') {
-                    debug!("ignoring invalid peer return message: {}", msg);
+                    debug!("{:?}", msg.chars().take(msg.len()-1));
+                    debug!("ignoring peer ret, not matching '(.+)': '{msg}'.");
                     continue;
                 }
+
+                let msg = if msg == "(init ok)" { "(ok init)" } else { msg };
 
                 let mut msg = msg[1..msg.len()-1].split(' ');
                 let (kind, ret) = match msg.next() {
                     Some("ok") => {
                         if  let Some(kind_str) = msg.next() &&
-                            let Some(sig_kind) = SignalKind::decode(kind_str) {
+                            let Some(sig_kind) = CommandKind::decode(kind_str) {
                             let rest: Vec<_> = msg.collect();
                             let ret = sig_kind.parse_ret_ok(&rest);
                             match ret {
@@ -138,15 +162,19 @@ impl Receiver {
     }
 
     fn add_queue(
-        &self, signal: SignalKind,
+        &self, signal: CommandKind,
         tx: oneshot::Sender<Result<Box<dyn Any + Send>, Box<dyn Any + Send>>>
     ) {
         self.queue.entry(signal).or_default().push_back(tx)
     }
+
+    pub fn close(&self) -> () {
+        self.recv_task.abort();
+    }
 }
 
 #[derive(Clone, Debug)]
-struct Sender {
+pub struct Sender {
     tx: mpsc::Sender<ArcStr>,
     resolver: Arc<Receiver>,
 }
@@ -156,7 +184,7 @@ impl Sender {
         Self { tx, resolver }
     }
 
-    pub async fn send<T: Signal>(&self, sig: T) -> Result<T::Ok, T::Error> {
+    pub async fn send<T: Command>(&self, sig: T) -> Result<T::Ok, T::Error> {
         let sig_kind = sig.kind();
         let sender = &self.tx;
         sender.send(sig.encode()).await.expect("todo!");
@@ -192,7 +220,7 @@ impl WeakSender {
         Self { tx, resolver }
     }
 
-    pub async fn send<T: Signal>(&self, sig: T) -> Result<T::Ok, T::Error> {
+    pub async fn send<T: Command>(&self, sig: T) -> Result<T::Ok, T::Error> {
         let sig_kind = sig.kind();
         let sender = self.tx.upgrade().expect("todo!");
         sender.send(sig.encode()).await.expect("todo!");

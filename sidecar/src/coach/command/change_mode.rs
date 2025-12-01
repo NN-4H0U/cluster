@@ -3,18 +3,18 @@ use std::str::FromStr;
 use arcstr::{ArcStr, format};
 use common::types;
 
-use super::SignalKind;
+use super::CommandKind;
 
-pub struct SignalChangeMode {
+pub struct CommandChangeMode {
     pub play_mode: types::PlayMode,
 }
 
-impl super::Signal for SignalChangeMode {
+impl super::Command for CommandChangeMode {
     type Ok = ();
-    type Error = SignalChangeModeError;
+    type Error = CommandChangeModeError;
 
-    fn kind(&self) -> SignalKind {
-        SignalKind::ChangeMode
+    fn kind(&self) -> CommandKind {
+        CommandKind::ChangeMode
     }
     
     fn encode(&self) -> ArcStr {
@@ -31,16 +31,16 @@ impl super::Signal for SignalChangeMode {
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum SignalChangeModeError {
+pub enum CommandChangeModeError {
     #[error("The specified mode was not valid.")]
     IllegalMode,
     #[error("The PLAY_MODE argument was omitted")]
     IllegalCommandForm,
 }
 
-impl FromStr for SignalChangeModeError {
+impl FromStr for CommandChangeModeError {
     type Err = ();
-    fn from_str(s: &str) -> Result<Self, <SignalChangeModeError as FromStr>::Err> {
+    fn from_str(s: &str) -> Result<Self, <CommandChangeModeError as FromStr>::Err> {
         match s {
             "illegal_mode" => Ok(Self::IllegalMode),
             "illegal_command_form" => Ok(Self::IllegalCommandForm),

@@ -3,15 +3,15 @@ use std::str::FromStr;
 use arcstr::{ArcStr, literal};
 use common::types::BallPosition;
 
-use super::SignalKind;
+use super::CommandKind;
 
-pub struct SignalCheckBall;
-impl super::Signal for SignalCheckBall {
+pub struct CommandCheckBall;
+impl super::Command for CommandCheckBall {
     type Ok = (u16, BallPosition);
-    type Error = SignalCheckBallError;
+    type Error = CommandCheckBallError;
 
-    fn kind(&self) -> SignalKind {
-        SignalKind::CheckBall
+    fn kind(&self) -> CommandKind {
+        CommandKind::CheckBall
     }
     fn encode(&self) -> ArcStr {
         literal!("(check_ball)")
@@ -28,11 +28,11 @@ impl super::Signal for SignalCheckBall {
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum SignalCheckBallError {}
+pub enum CommandCheckBallError {}
 
-impl FromStr for SignalCheckBallError {
+impl FromStr for CommandCheckBallError {
     type Err = ();
-    fn from_str(s: &str) -> Result<Self, <SignalCheckBallError as FromStr>::Err> {
+    fn from_str(s: &str) -> Result<Self, <CommandCheckBallError as FromStr>::Err> {
         match s {
             _ => Err(()),
         }

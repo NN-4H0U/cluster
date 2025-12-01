@@ -1,11 +1,9 @@
 mod coach;
-pub mod signal;
+pub mod command;
 mod error;
 mod builder;
 mod resolver;
 mod addon;
-
-use common::client;
 
 pub use coach::OfflineCoach;
 pub use coach::OfflineCoach as Trainer;

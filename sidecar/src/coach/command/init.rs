@@ -1,18 +1,18 @@
 use std::str::FromStr;
 
 use arcstr::{ArcStr, literal, format};
-use crate::coach::signal::SignalKind;
+use crate::coach::command::CommandKind;
 
-pub struct SignalInit {
+pub struct CommandInit {
     pub version: Option<u8>,
 }
 
-impl super::Signal for SignalInit {
+impl super::Command for CommandInit {
     type Ok = ();
-    type Error = SignalInitError;
+    type Error = CommandInitError;
 
-    fn kind(&self) -> SignalKind {
-        SignalKind::Init
+    fn kind(&self) -> CommandKind {
+        CommandKind::Init
     }
 
     fn encode(&self) -> ArcStr {
@@ -31,11 +31,11 @@ impl super::Signal for SignalInit {
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum SignalInitError {}
+pub enum CommandInitError {}
 
-impl FromStr for SignalInitError {
+impl FromStr for CommandInitError {
     type Err = ();
-    fn from_str(s: &str) -> Result<Self, <SignalInitError as FromStr>::Err> {
+    fn from_str(s: &str) -> Result<Self, <CommandInitError as FromStr>::Err> {
         match s {
             _ => Err(()),
         }

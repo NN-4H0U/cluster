@@ -2,16 +2,16 @@ use std::str::FromStr;
 
 use arcstr::{ArcStr, literal};
 use common::types;
-use crate::coach::signal::SignalKind;
+use crate::coach::command::CommandKind;
 
-pub struct SignalRecover;
+pub struct CommandRecover;
 
-impl super::Signal for SignalRecover {
+impl super::Command for CommandRecover {
     type Ok = ();
-    type Error = SignalRecoverError;
+    type Error = CommandRecoverError;
 
-    fn kind(&self) -> SignalKind {
-        SignalKind::Recover
+    fn kind(&self) -> CommandKind {
+        CommandKind::Recover
     }
 
     fn encode(&self) -> ArcStr {
@@ -26,11 +26,11 @@ impl super::Signal for SignalRecover {
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum SignalRecoverError {}
+pub enum CommandRecoverError {}
 
-impl FromStr for SignalRecoverError {
+impl FromStr for CommandRecoverError {
     type Err = ();
-    fn from_str(s: &str) -> Result<Self, <SignalRecoverError as FromStr>::Err> {
+    fn from_str(s: &str) -> Result<Self, <CommandRecoverError as FromStr>::Err> {
         match s {
             _ => Err(()),
         }
