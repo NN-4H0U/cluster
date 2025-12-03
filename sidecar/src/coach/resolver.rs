@@ -1,15 +1,18 @@
 use std::any::Any;
 use std::collections::VecDeque;
 use std::sync::Arc;
-
+use std::time::Duration;
 use arcstr::ArcStr;
 use dashmap::DashMap;
 use log::debug;
 
 use tokio::sync::{mpsc, oneshot};
+use tokio::time::error::Elapsed;
 use common::client::{TxData, RxData, TxSignal};
 use super::addon::AddOn;
 use super::command::{Command, CommandKind};
+
+pub const TIMEOUT: Duration = Duration::from_millis(2000);
 
 #[derive(Clone, Debug)]
 pub struct CallResolver {
@@ -184,7 +187,7 @@ impl Sender {
         Self { tx, resolver }
     }
 
-    pub async fn send<T: Command>(&self, sig: T) -> Result<T::Ok, T::Error> {
+    async fn send<T: Command>(&self, sig: T) -> Result<T::Ok, T::Error> {
         let sig_kind = sig.kind();
         let sender = &self.tx;
         sender.send(sig.encode()).await.expect("todo!");
@@ -201,6 +204,10 @@ impl Sender {
                 Err(err)
             }
         }
+    }
+    
+    pub async fn call<T: Command>(&self, sig: T) -> Result<Result<T::Ok, T::Error>, Elapsed> {
+        tokio::time::timeout(TIMEOUT, self.send(sig)).await
     }
 
     pub fn downgrade(&self) -> WeakSender {

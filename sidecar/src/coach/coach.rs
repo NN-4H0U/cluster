@@ -5,6 +5,7 @@ use tokio::sync::{mpsc, OnceCell};
 use dashmap::DashMap;
 use arcstr::ArcStr;
 use log::{debug, trace};
+use tokio::time::error::Elapsed;
 use uuid::Uuid;
 
 use common::client;
@@ -76,14 +77,21 @@ impl OfflineCoach {
         debug!("[Coach] Connected.");
         let _ = self.init_resolver()?;
         debug!("[Coach] CallResolver initialized.");
-        self.call(command::Init { version: Some(5) }).await.expect("Failed to send init signal");
+        self.call(command::Init { version: Some(5) }).await
+            .expect("Failed to send init signal").unwrap();
         Ok(())
     }
 
-    pub async fn call<T: Command>(&self, cmd: T) -> std::result::Result<T::Ok, T::Error> {
+    pub fn caller<T: Command>(&self) -> Sender {
+        self.resolver_tx.get().expect("CallResolver not initialized").clone()
+    }
+
+    pub async fn call<T: Command>(
+        &self, cmd: T
+    ) -> std::result::Result<std::result::Result<T::Ok, T::Error>, Elapsed> {
         self.resolver_tx.get()
             .expect("CallResolver not initialized")
-            .send(cmd).await
+            .call(cmd).await
     }
 
     pub fn sender(&self) -> mpsc::Sender<client::TxData> {

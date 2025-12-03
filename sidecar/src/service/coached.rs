@@ -6,14 +6,14 @@ use crate::process::{self, ServerProcess, ServerProcessSpawner};
 use crate::RCSS_PROCESS_NAME;
 use crate::PEER_IP;
 
-pub struct ServerSpawner {
+pub struct CoachedProcessSpawner {
     coach:      coach::Builder,
     process:    ServerProcessSpawner,
 }
 
-impl ServerSpawner {
+impl CoachedProcessSpawner {
     pub async fn new() -> Self {
-        ServerSpawner {
+        CoachedProcessSpawner {
             coach: OfflineCoach::builder(),
             process: ServerProcess::spawner(RCSS_PROCESS_NAME).await,
         }
@@ -30,7 +30,7 @@ impl ServerSpawner {
         self
     }
 
-    pub async fn spawn(&self) -> Result<Server, Box<dyn std::error::Error>> {
+    pub async fn spawn(&self) -> Result<CoachedProcess, Box<dyn std::error::Error>> {
         let process = {
             let mut process = self.process.spawn().await?;
             match process.until_ready(Some(Duration::from_secs(2))).await {
@@ -47,23 +47,23 @@ impl ServerSpawner {
             coach
         };
         
-        Ok(Server::from_started(coach, process))
+        Ok(CoachedProcess::from_started(coach, process))
     }
 }
 
 #[derive(Debug)]
-pub struct Server {
+pub struct CoachedProcess {
     coach:      OfflineCoach,
     process:    ServerProcess,
 }
 
-impl Server {
-    pub async fn spawner() -> ServerSpawner {
-        ServerSpawner::new().await
+impl CoachedProcess {
+    pub async fn spawner() -> CoachedProcessSpawner {
+        CoachedProcessSpawner::new().await
     }
 
     fn from_started(coach: OfflineCoach, process: ServerProcess) -> Self {
-        Server {
+        CoachedProcess {
             coach,
             process,
         }
