@@ -15,14 +15,6 @@ use super::command::{Command, CommandKind};
 
 pub const TIMEOUT: Duration = Duration::from_millis(2000);
 
-#[derive(Clone, Debug)]
-pub struct CallResolver<RX>
-where RX: Debug + Send + Sync + 'static
-{
-    rx: Arc<Receiver<RX>>,
-    rx_ingest: Option<mpsc::Sender<RX>>, // bind to rx Receiver
-}
-
 impl CallResolver<RxData> {
     pub fn from_rx(receiver: mpsc::Receiver<RxData>) -> Self {
         let rx = Arc::new(Receiver::new(receiver));
@@ -33,67 +25,6 @@ impl CallResolver<RxData> {
         let rx = Arc::new(Receiver::new(rx));
         Self { rx, rx_ingest: Some(tx) }
     }
-}
-
-impl<RX> CallResolver<RX>
-where RX: Debug + Send + Sync + 'static,
-{
-    pub fn from_caller<TX>(caller: Sender<TX, RX>) -> Self
-    where TX: From<ArcStr> + Debug + Send + Sync + 'static,
-    {
-        let rx = caller.resolver.clone();
-        Self { rx, rx_ingest: None }
-    }
-
-
-    pub fn ingest_tx(&self) -> Option<mpsc::Sender<RX>> {
-        self.rx_ingest.clone()
-    }
-
-    pub fn sender<TX>(&self, tx: mpsc::Sender<TX>) -> Sender<TX, RX>
-    where TX: From<ArcStr> + Debug + Send + Sync + 'static,
-    {
-        Sender::new(tx, Arc::clone(&self.rx))
-    }
-
-    pub fn weak<TX>(&self, tx: mpsc::WeakSender<TX>) -> WeakSender<TX, RX>
-    where TX: From<ArcStr> + Debug + Send + Sync + 'static,
-    {
-        WeakSender::new(tx, Arc::clone(&self.rx))
-    }
-
-    pub fn close(&self) -> () {
-        self.rx.close()
-    }
-}
-
-impl Addon for CallResolver<RxData> {
-    fn close(&self) {
-        CallResolver::close(&self);
-    }
-}
-
-impl RawAddon for CallResolver<RxData> {
-    fn from_raw(
-        _: mpsc::Sender<TxSignal>,
-        _: mpsc::Sender<TxData>,
-        data_rx: mpsc::Receiver<RxData>
-    ) -> Self where Self: Sized {
-        Self::from_rx(data_rx)
-    }
-}
-
-/// Receive from the ArcStr channel,
-#[derive(Debug)]
-struct Receiver<RX: Debug + Send + Sync + 'static> {
-    recv_task: tokio::task::JoinHandle<()>,
-
-    queue: Arc<DashMap<
-        CommandKind,
-        VecDeque<oneshot::Sender<Result<Box<dyn Any + Send>, Box<dyn Any + Send>>>>
-    >>,
-
-    _phantom: std::marker::PhantomData<RX>,
 }
 
 impl Receiver<RxData> {
@@ -186,6 +117,76 @@ impl Receiver<RxData> {
             _phantom: Default::default(),
         }
     }
+}
+
+impl Addon for CallResolver<RxData> {
+    fn close(&self) {
+        CallResolver::close(&self);
+    }
+}
+
+impl RawAddon for CallResolver<RxData> {
+    fn from_raw(
+        _: mpsc::Sender<TxSignal>,
+        _: mpsc::Sender<TxData>,
+        data_rx: mpsc::Receiver<RxData>
+    ) -> Self where Self: Sized {
+        Self::from_rx(data_rx)
+    }
+}
+
+
+#[derive(Clone, Debug)]
+pub struct CallResolver<RX>
+where RX: Debug + Send + Sync + 'static
+{
+    rx: Arc<Receiver<RX>>,
+    rx_ingest: Option<mpsc::Sender<RX>>, // bind to rx Receiver
+}
+
+impl<RX> CallResolver<RX>
+where RX: Debug + Send + Sync + 'static,
+{
+    pub fn from_caller<TX>(caller: Sender<TX, RX>) -> Self
+    where TX: From<ArcStr> + Debug + Send + Sync + 'static,
+    {
+        let rx = caller.resolver.clone();
+        Self { rx, rx_ingest: None }
+    }
+
+
+    pub fn ingest_tx(&self) -> Option<mpsc::Sender<RX>> {
+        self.rx_ingest.clone()
+    }
+
+    pub fn sender<TX>(&self, tx: mpsc::Sender<TX>) -> Sender<TX, RX>
+    where TX: From<ArcStr> + Debug + Send + Sync + 'static,
+    {
+        Sender::new(tx, Arc::clone(&self.rx))
+    }
+
+    pub fn weak<TX>(&self, tx: mpsc::WeakSender<TX>) -> WeakSender<TX, RX>
+    where TX: From<ArcStr> + Debug + Send + Sync + 'static,
+    {
+        WeakSender::new(tx, Arc::clone(&self.rx))
+    }
+
+    pub fn close(&self) -> () {
+        self.rx.close()
+    }
+}
+
+/// Receive from the ArcStr channel,
+#[derive(Debug)]
+struct Receiver<RX: Debug + Send + Sync + 'static> {
+    recv_task: tokio::task::JoinHandle<()>,
+
+    queue: Arc<DashMap<
+        CommandKind,
+        VecDeque<oneshot::Sender<Result<Box<dyn Any + Send>, Box<dyn Any + Send>>>>
+    >>,
+
+    _phantom: std::marker::PhantomData<RX>,
 }
 
 impl<RX: Debug + Send + Sync + 'static> Receiver<RX> {
