@@ -1,6 +1,6 @@
 use std::ops::{Deref, DerefMut};
 use common::client;
-use crate::coach::OfflineCoach;
+use crate::trainer::OfflineCoach;
 use crate::client::RichClientBuilder;
 
 #[derive(Clone, Debug)]

@@ -2,24 +2,27 @@ use log::info;
 use tokio::sync::watch;
 use common::command::{Command, CommandResult};
 use common::command::trainer::TrainerCommand;
+use crate::process;
 use super::addons;
 use super::CoachedProcess;
 
 pub struct Service {
     process: CoachedProcess,
     time_rx: watch::Receiver<Option<u16>>,
+    pub config: process::Config,
 }
 
 impl Service {
     pub async fn new() -> Self {
         let spawner = CoachedProcess::spawner().await;
         let process = spawner.spawn().await.unwrap();
+        let config = spawner.process.config;
         info!("[Service] Process spawned");
 
-        Self::from_coached_process(process)
+        Self::from_coached_process(process, config)
     }
 
-    pub fn from_coached_process(process: CoachedProcess) -> Self {
+    pub fn from_coached_process(process: CoachedProcess, config: process::Config) -> Self {
         let time_rx = process.coach()
             .add_caller_addon::<addons::TimeStatusAddon>("time");
         info!("[Service] Time status addon registered");
@@ -27,6 +30,7 @@ impl Service {
         Self {
             process,
             time_rx,
+            config,
         }
     }
     

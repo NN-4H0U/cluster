@@ -2,7 +2,7 @@
 compile_error!("This program currently not supported on Windows.");
 
 mod process;
-mod coach;
+mod trainer;
 mod test;
 mod service;
 mod client;

@@ -16,9 +16,11 @@ pub struct AgonesService {
 
 pub async fn start_singleton_service() -> Result<(), Box<dyn std::error::Error>> {
     let spawner = CoachedProcess::spawner().await;
+    let config = spawner.process.config.clone();
 
     loop {
-        let service = Service::from_coached_process(spawner.spawn().await?);
+
+        let service = Service::from_coached_process(spawner.spawn().await?, config.clone());
         info!("[Service] Spawned.");
 
         let mut time_watcher = service.time_watch();

@@ -1,15 +1,15 @@
 use std::net::SocketAddr;
 use std::time::Duration;
 use log::error;
-use crate::coach::{self, OfflineCoach};
+use crate::trainer::{self, OfflineCoach};
 use crate::process::{self, ServerProcess, ServerProcessSpawner};
 
 use crate::RCSS_PROCESS_NAME;
 use crate::PEER_IP;
 
 pub struct CoachedProcessSpawner {
-    coach:      coach::Builder,
-    process:    ServerProcessSpawner,
+    pub coach:      trainer::Builder,
+    pub process:    ServerProcessSpawner,
 }
 
 impl CoachedProcessSpawner {
