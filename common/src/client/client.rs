@@ -48,10 +48,14 @@ impl Client {
         }
 
         let (signal_tx, signal_rx) = mpsc::channel(CHANNEL_CAPACITY);
-        self.signal_tx.set(signal_tx).expect("checked above");
+        if let Err(_) = self.signal_tx.set(signal_tx) {
+            return Err(Error::AlreadyConnected { client_name: self.config.name.clone() });
+        }
 
         let (data_tx, data_rx) = mpsc::channel(CHANNEL_CAPACITY);
-        self.data_tx.set(data_tx).expect("checked above");
+        if let Err(_) = self.data_tx.set(data_tx) {
+            return Err(Error::AlreadyConnected { client_name: self.config.name.clone() });
+        }
 
         let consumers = self.consumers.clone();
         let context = Context {

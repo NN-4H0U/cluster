@@ -220,6 +220,7 @@ impl ServerProcess {
         }
     }
 
+    /// Wait until the rcssserver is ready and able to accept Udp connections.
     pub async fn until_ready(&mut self, timeout: Option<Duration>) -> Result<()> {
         if self.try_ready()? { return Ok(()) }
 

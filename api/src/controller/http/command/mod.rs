@@ -2,7 +2,7 @@ mod trainer;
 
 use serde::Serialize;
 
-use super::{AppState, Response};
+use super::{AppState, Response, Error};
 
 use common::command::{Command, CommandResult};
 

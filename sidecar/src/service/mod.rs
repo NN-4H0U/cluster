@@ -2,7 +2,7 @@ mod coached;
 pub mod addons;
 mod service;
 
-pub use coached::CoachedProcess;
+pub use coached::{CoachedProcess, CoachedProcessSpawner};
 pub use service::Service;
 
 use log::{info, trace, warn};
@@ -20,7 +20,7 @@ pub async fn start_singleton_service() -> Result<(), Box<dyn std::error::Error>>
 
     loop {
 
-        let service = Service::from_coached_process(spawner.spawn().await?, config.clone());
+        let service = Service::from_coached_process(spawner.spawn().await?);
         info!("[Service] Spawned.");
 
         let mut time_watcher = service.time_watch();

@@ -1,15 +1,15 @@
 use std::net::SocketAddr;
+use std::sync::Arc;
 use arcstr::ArcStr;
 use tokio::sync::mpsc;
 use axum::extract::{Path, State, ws::WebSocket, WebSocketUpgrade, Query};
 use axum::{routing, Router, response::Response as AxumResponse};
-use axum::body::Bytes;
 use axum::extract::ws::Message;
 use uuid::Uuid;
 use serde::Deserialize;
 
-use sidecar::{Service, PEER_IP};
-use common::client::{Client, Config as ClientConfig};
+use sidecar::{PEER_IP};
+use common::client::{Client, Config as ClientConfig, Error as ClientError};
 
 use super::AppState;
 
@@ -31,33 +31,90 @@ async fn upgrade(
 }
 
 use futures::{SinkExt, StreamExt};
-use log::error;
+use futures::stream::SplitStream;
+use log::{debug, error, info, trace, warn};
+use tokio::task::JoinHandle;
 
-async fn handle_upgrade(socket: WebSocket, state: &AppState, client_id: Uuid, req: UpdateRequest) {
-    let (mut socket_tx, mut socket_rx) = socket.split();
-
+async fn handle_upgrade(mut socket: WebSocket, state: &AppState, client_id: Uuid, req: UpdateRequest) {
     let client_config = {
         let mut builder = ClientConfig::builder();
         builder.name = req.name;
         let server_addr = SocketAddr::new(
-            PEER_IP, state.service.config.server.port.unwrap_or(DEFAULT_SERVER_UDP_PORT));
+            PEER_IP, state.sidecar.config().server.port.unwrap_or(DEFAULT_SERVER_UDP_PORT));
         builder.with_peer(server_addr);
 
         builder.build_into()
     };
 
+    let player_client = {
+        let mut client = None;
 
-    let player_client = Client::new(client_config);
+        state.players.entry(client_id)
+            .and_modify(|c| { // existing weak
+                client = c.upgrade();
+                if client.is_none() {
+                    client = Some(Arc::new(Client::new(client_config.clone())));
+                    *c = Arc::downgrade(client.as_ref().unwrap());
+                }
+            })
+            .or_insert_with(|| { // create
+                client = Some(Arc::new(Client::new(client_config.clone())));
+                Arc::downgrade(client.as_ref().unwrap())
+            });
+
+       client.unwrap()
+    };
+
     let (client_tx, mut client_rx) = mpsc::channel(32);
     player_client.subscribe(client_tx);
-    if let Err(e) = player_client.connect().await {
-        error!("[Player WS] Client[{client_id}] Failed to connect to server: {}", e);
-        let _ = socket_tx.send("Failed to connect to server".into()).await;
-        return;
+
+    match player_client.connect().await {
+        Ok(_) => {
+            trace!("[Player WS] Client[{client_id}] Connected to server.");
+        },
+        Err(ClientError::AlreadyConnected { .. }) => {
+            info!("[Player WS] Client[{client_id}] Already connected, may because of reconnection or broadcasting.");
+        },
+        Err(e) => {
+            warn!("[Player WS] Client[{client_id}] Failed to connect to server: {}", e);
+            let _ = socket.send("Failed to connect to server".into()).await;
+            return;
+        }
     }
+
+    let (
+        socket_tx,
+        mut socket_rx,
+        mut socket_task
+    ) = ws_into_mpsc_tx::<32>(socket);
 
     loop {
         tokio::select! {
+            // if the socket task finishes, the ws socket is considered to be closed
+            socket_close = &mut socket_task => {
+                match socket_close {
+                    Ok(Ok(())) => {
+                        trace!("[Player WS] Client[{client_id}] WebSocket closed normally.");
+                    },
+                    Ok(Err(e)) => {
+                        warn!("[Player WS] Client[{client_id}] WebSocket closed with error: {e}");
+                    },
+                    Err(e) => {
+                        warn!("[Player WS] Client[{client_id}] WebSocket task failed to join: {e}");
+                    }
+                }
+
+                // if is the last reference, close the connection
+                if let Some(client) = Arc::into_inner(player_client) {
+                    if let Err(e) = client.close().await {
+                        error!("[Player WS] Client[{client_id}] Failed to close client: {e}");
+                    } else {
+                        trace!("[Player WS] Client[{client_id}] closed normally.");
+                    }
+                }
+                // elsewise return directly
+                return;
+            }
             Some(msg) = socket_rx.next() => {
                 let msg = match msg {
                     Ok(msg) => msg,
@@ -102,5 +159,38 @@ async fn handle_upgrade(socket: WebSocket, state: &AppState, client_id: Uuid, re
                 }
             }
         }
+    }
+}
+
+fn ws_into_mpsc_tx<const BUF_SIZE: usize>(
+    ws: WebSocket
+) -> (mpsc::Sender<Message>, SplitStream<WebSocket>, JoinHandle<Result<(), axum::Error>>) {
+    let (tx, rx) = mpsc::channel(BUF_SIZE);
+    let (socket_tx, socket_rx) = ws.split();
+
+    let task = tokio::spawn(async move {
+        let mut socket_tx = socket_tx;
+        let mut rx = rx;
+
+        while let Some(msg) = rx.recv().await {
+            if let Err(e) = socket_tx.send(msg).await {
+                return Err(e)
+            }
+        }
+
+        Ok(())
+    });
+
+    (tx, socket_rx, task)
+}
+
+pub fn route(path: &str) -> Router<AppState> {
+    let inner = Router::new()
+        .route("/:client_id", routing::get(upgrade));
+
+    if path == "/" {
+        inner
+    } else {
+        Router::new().nest(path, inner)
     }
 }

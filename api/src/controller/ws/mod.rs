@@ -1,4 +1,3 @@
-mod ws;
 mod message;
 mod error;
 mod player;
@@ -23,7 +22,7 @@ use error::*;
 
 pub fn route(path: &str, app_state: AppState) -> Router {
     let inner = Router::new()
-        .merge(ws::route("/"))
+        .merge(player::route("/"))
         .with_state(app_state);
 
     if path == "/" {

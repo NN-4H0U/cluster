@@ -10,21 +10,22 @@ use tokio::net::{TcpListener, ToSocketAddrs};
 use tokio::task::JoinHandle;
 
 pub use response::Response;
+pub use error::Error;
 
 use tower_http::trace::TraceLayer;
-
-use sidecar::Service;
+use uuid::Uuid;
+use sidecar::Sidecar;
 
 #[derive(Clone)]
 pub struct AppState {
-    service: Arc<Service>,
-    players: DashMap<String, Weak<common::client::Client>>
+    sidecar: Arc<Sidecar>,
+    players: Arc<DashMap<Uuid, Weak<common::client::Client>>>
 }
 
 pub async fn listen<A: ToSocketAddrs>(
     addr: A,
 ) -> JoinHandle<Result<(), String>> {
-    let state = AppState { service: Arc::new(Service::new().await), players: DashMap::new() };
+    let state = AppState { sidecar: Arc::new(Sidecar::new().await), players: Arc::new(DashMap::new()) };
     
     let app = Router::new()
         .merge(http::route("/", state.clone()))

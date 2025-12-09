@@ -5,17 +5,8 @@ use axum::extract::State;
 use common::command::{Command, CommandResult};
 use common::command::trainer::*;
 
-use super::{AppState, Response};
+use super::{AppState, Response, Error};
 use super::CommandResponse;
-
-impl AppState {
-    pub async fn send_trainer_command<C: Command<Kind = TrainerCommand>>(
-        &self,
-        cmd: C,
-    ) -> CommandResult<C> {
-        self.service.send_trainer_command(cmd).await
-    }
-}
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -33,10 +24,14 @@ pub async fn post<C: Command<Kind=TrainerCommand>>(
     State(s): State<AppState>,
     Json(req): Json<PostRequest<C>>,
 ) -> Json<Response> {
-    let result: CommandResponse<C> = s.send_trainer_command(req.0).await.into();
+    let result = s.sidecar.send_trainer_command(req.0).await;
+    if let Err(e) = result { return Json(Error::from(e).into()) }
+    
+    let result: CommandResponse<C> = result.expect("WTF").into();
     let resp = PostResponse(result);
     Json(Response::success(Some(resp)))
 }
+
 pub fn route(path: &str) -> Router<AppState> {
     let inner = Router::new()
         .route("/change_mode", routing::post(post::<ChangeMode>))

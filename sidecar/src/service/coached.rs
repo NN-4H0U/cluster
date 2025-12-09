@@ -7,6 +7,7 @@ use crate::process::{self, ServerProcess, ServerProcessSpawner};
 use crate::RCSS_PROCESS_NAME;
 use crate::PEER_IP;
 
+#[derive(Clone, Debug)]
 pub struct CoachedProcessSpawner {
     pub coach:      trainer::Builder,
     pub process:    ServerProcessSpawner,
