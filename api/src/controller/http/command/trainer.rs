@@ -1,14 +1,14 @@
 use serde::{Deserialize, Serialize};
 use axum::{routing, Json, Router};
 use axum::extract::State;
-
+use log::{error, info};
 use common::command::{Command, CommandResult};
 use common::command::trainer::*;
 
 use super::{AppState, Response, Error};
 use super::CommandResponse;
 
-#[derive(Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct PostRequest<C: Command<Kind=TrainerCommand>>(C);
 #[derive(Debug)]
@@ -29,6 +29,7 @@ pub async fn post<C: Command<Kind=TrainerCommand>>(
     
     let result: CommandResponse<C> = result.expect("WTF").into();
     let resp = PostResponse(result);
+    println!("{:?}", serde_json::to_string(&resp));
     Json(Response::success(Some(resp)))
 }
 
@@ -48,5 +49,19 @@ pub fn route(path: &str) -> Router<AppState> {
         inner
     } else {
         Router::new().nest(path, inner)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use common::command::trainer::Start;
+
+    #[test]
+    fn test_se_des() {
+        let req = PostRequest(Start);
+        let json = serde_json::to_string(&req).unwrap();
+        let req: PostRequest<Start> = serde_json::from_str("[null]").unwrap();
+        println!("{req:?}")
     }
 }

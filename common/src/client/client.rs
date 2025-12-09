@@ -284,8 +284,6 @@ async fn wait_init_resp_recv(
 ) -> Result<ClientRxData> {
     let mut buf = [0u8; BUFFER_SIZE];
 
-
-
     trace!("Client[{}]: sending init msg to server: {} and waiting for response.", context.cfg.name, init_msg);
     let recv_result = tokio::time::timeout(
         Duration::from_millis(INIT_MSG_TIMEOUT_MS),

@@ -1,5 +1,6 @@
 mod trainer;
 
+use axum::Router;
 use serde::Serialize;
 
 use super::{AppState, Response, Error};
@@ -12,7 +13,7 @@ pub struct CommandResponse<C: Command>(CommandResult<C>);
 #[derive(Serialize, Debug)]
 struct SerializeCommandResponseHelper<'a, C: Command> {
     ok: bool,
-    #[serde(flatten, skip_serializing_if = "Option::is_some")]
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
     ok_content: Option<&'a C::Ok>,
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     err: Option<&'a String>,
@@ -45,6 +46,13 @@ impl<C: Command> From<CommandResult<C>> for CommandResponse<C> {
     }
 }
 
-pub fn route(path: &str) -> axum::Router<AppState> {
-    trainer::route(path)
+pub fn route(path: &str) -> Router<AppState> {
+    let inner = Router::new()
+        .merge(trainer::route("/trainer"));
+
+    if path == "/" {
+        inner
+    } else {
+        Router::new().nest(path, inner)
+    }
 }

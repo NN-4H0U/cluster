@@ -104,16 +104,7 @@ async fn handle_upgrade(mut socket: WebSocket, state: &AppState, client_id: Uuid
                     }
                 }
 
-                // if is the last reference, close the connection
-                if let Some(client) = Arc::into_inner(player_client) {
-                    if let Err(e) = client.close().await {
-                        error!("[Player WS] Client[{client_id}] Failed to close client: {e}");
-                    } else {
-                        trace!("[Player WS] Client[{client_id}] closed normally.");
-                    }
-                }
-                // elsewise return directly
-                return;
+                break;
             }
             Some(msg) = socket_rx.next() => {
                 let msg = match msg {
@@ -128,19 +119,20 @@ async fn handle_upgrade(mut socket: WebSocket, state: &AppState, client_id: Uuid
                     Message::Text(text) => { // treat text as data signals
                         let text = text.trim();
                         if text.is_empty() { continue; }
+                        player_client.send_data(text.into()).await.expect("Failed send msg to udp client");
                     },
 
                     Message::Binary(bin) => { // treat binary as control signals
                         if let Err(e) = socket_tx.send(Message::Binary(bin)).await {
                             error!("[Player WS] Client[{client_id}] Failed to send message: {}", e);
-                            return;
+                            break;
                         }
                     },
 
                     Message::Ping(ping) => {
                         if let Err(e) = socket_tx.send(Message::Pong(ping)).await {
                             error!("[Player WS] Client[{client_id}] Failed to send message: {}", e);
-                            return;
+                            break;
                         }
                     },
 
@@ -155,11 +147,21 @@ async fn handle_upgrade(mut socket: WebSocket, state: &AppState, client_id: Uuid
 
                 if let Err(e) = socket_tx.send(message).await {
                     error!("[Player WS] Client[{client_id}] Failed to send message: {}", e);
-                    return;
+                    break;
                 }
             }
         }
     }
+
+    // if is the last reference, close the connection
+    if let Some(client) = Arc::into_inner(player_client) {
+        if let Err(e) = client.close().await {
+            error!("[Player WS] Client[{client_id}] Failed to close client: {e}");
+        } else {
+            trace!("[Player WS] Client[{client_id}] closed normally.");
+        }
+    }
+    // elsewise return directly
 }
 
 fn ws_into_mpsc_tx<const BUF_SIZE: usize>(
@@ -186,7 +188,7 @@ fn ws_into_mpsc_tx<const BUF_SIZE: usize>(
 
 pub fn route(path: &str) -> Router<AppState> {
     let inner = Router::new()
-        .route("/:client_id", routing::get(upgrade));
+        .route("/{client_id}", routing::get(upgrade));
 
     if path == "/" {
         inner

@@ -3,6 +3,7 @@ use std::str::FromStr;
 use arcstr::{ArcStr, literal, format};
 use super::{Command, CommandAny, PlayerCommand};
 
+#[derive(Debug)]
 pub struct CommandInit {
     pub version: Option<u8>,
 }

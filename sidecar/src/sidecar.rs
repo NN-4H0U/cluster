@@ -118,11 +118,4 @@ impl Sidecar {
     pub fn config(&self) -> &process::Config {
         &self.spawner.process.config
     }
-
-    pub async fn spawn_service(&self) -> Service {
-        let process = self.spawner.spawn().await.unwrap();
-        info!("[ServiceFactory] Process spawned");
-
-        Service::from_coached_process(process)
-    }
 }

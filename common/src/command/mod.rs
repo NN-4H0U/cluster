@@ -8,7 +8,7 @@ use serde::Serialize;
 pub mod trainer;
 pub mod player;
 
-pub trait Command {
+pub trait Command: Debug {
     type Kind: CommandAny + Send + 'static;
     type Ok: CommandOk;
     type Error: CommandError;
