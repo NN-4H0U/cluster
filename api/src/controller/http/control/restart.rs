@@ -6,16 +6,15 @@ use super::{AppState, Response};
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct PostRequest {
+    #[serde(default)]
     pub force: bool,
 }
 async fn post(
     State(state): State<AppState>,
-    Json(req): Json<Option<PostRequest>>,
+    Json(req): Json<PostRequest>,
 
 ) -> Response {
-    let req = req.map(|r|r.force).unwrap_or(false);
-    let res = state.sidecar.restart(req).await;
-
+    let res = state.sidecar.restart(req.force).await;
     match res {
         Ok(_) => Response::success::<()>(None),
         Err(e) => Response::error("Restart Failed", &e.to_string()),
