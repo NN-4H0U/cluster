@@ -12,6 +12,8 @@ reqwest = { version = "0.12", features = ["json"] }
 tokio.workspace = true
 futures.workspace = true
 dashmap.workspace = true
+arcstr.workspace = true
+chrono.workspace = true
 
 uuid.workspace = true
 serde.workspace = true

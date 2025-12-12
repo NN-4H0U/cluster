@@ -1,23 +1,20 @@
 use std::net::SocketAddr;
+use crate::room::RoomConfig;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("Failed to open UDP socket for Room at {addr:?}")]
-    OpenRoomUdp {
-        addr: SocketAddr
+    #[error("Room[{room_name}] not found")]
+    RoomNotFound {
+        room_name: String,
     },
-
-    #[error("Failed to open UDP transmission port for client at {addr:?}")]
-    OpenClientUdp {
-        addr: SocketAddr
+    
+    #[error("Room[{room_name}] already dropped")]
+    RoomDropped {
+        room_name: String,
     },
-
-    #[error("WebSocket connection error: {source}")]
-    WsConnect {
-        url: String,
-        source: tokio_tungstenite::tungstenite::Error
-    }
-
+    
+    #[error(transparent)]
+    Room(#[from] crate::room::Error),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
