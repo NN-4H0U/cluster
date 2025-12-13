@@ -1,7 +1,6 @@
 use std::sync::atomic::{AtomicU8, Ordering};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum ClientStatusKind {
     Idle = 0,
     WaitingRedirection = 1,
