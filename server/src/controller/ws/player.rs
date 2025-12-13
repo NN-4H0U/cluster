@@ -9,7 +9,7 @@ use tokio::sync::mpsc;
 use uuid::Uuid;
 
 use common::client::{Client, Config as ClientConfig, Error as ClientError};
-use sidecar::PEER_IP;
+use crate::PEER_IP;
 
 use super::AppState;
 
@@ -47,7 +47,7 @@ async fn handle_upgrade(
         let server_addr = SocketAddr::new(
             PEER_IP,
             state
-                .sidecar
+                .server
                 .config()
                 .server
                 .port

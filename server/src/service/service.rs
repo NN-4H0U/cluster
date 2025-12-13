@@ -1,4 +1,4 @@
-use super::CoachedProcess;
+use super::{CoachedProcess, CoachedProcessSpawner};
 use super::addons;
 use common::command::trainer::TrainerCommand;
 use common::command::{Command, CommandResult};
@@ -12,12 +12,11 @@ pub struct Service {
 }
 
 impl Service {
-    pub async fn new() -> Self {
-        let spawner = CoachedProcess::spawner().await;
-        let process = spawner.spawn().await.unwrap();
+    pub async fn spawn(spawner: &CoachedProcessSpawner) -> Result<Self, Box<dyn std::error::Error>> {
+        let process = spawner.spawn().await?;
         info!("[Service] Process spawned");
 
-        Self::from_coached_process(process)
+        Ok(Self::from_coached_process(process))
     }
 
     pub fn from_coached_process(process: CoachedProcess) -> Self {

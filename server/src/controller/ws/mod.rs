@@ -1,5 +1,4 @@
 mod error;
-mod message;
 mod player;
 
 use super::AppState;

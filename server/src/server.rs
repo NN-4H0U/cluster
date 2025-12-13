@@ -1,7 +1,6 @@
 use common::command::trainer::TrainerCommand;
 use common::command::{Command, CommandResult};
-use futures::AsyncReadExt;
-use log::{debug, info};
+use log::{debug, info, warn};
 use std::sync::Arc;
 use std::sync::atomic::AtomicU8;
 use tokio::sync::{RwLock, watch};
@@ -96,13 +95,13 @@ impl SidecarService {
 }
 
 #[derive(Debug)]
-pub struct Sidecar {
+pub struct Server {
     spawner: CoachedProcessSpawner,
     service: RwLock<SidecarService>,
     status: Arc<AtomicU8>,
 }
 
-impl Sidecar {
+impl Server {
     pub async fn new() -> Self {
         let spawner = CoachedProcess::spawner().await;
         let service = RwLock::new(SidecarService::Uninitialized);
@@ -124,7 +123,7 @@ impl Sidecar {
                     Ok(_) => *time_rx.borrow(),
                     Err(_) => {
                         set_status(&atomic, SidecarStatus::Finished);
-                        debug!("[Sidecar] Status Tracking ended due to time_rx channel closed.");
+                        debug!("[Server] Status Tracking ended due to time_rx channel closed.");
                         break;
                     }
                 };
@@ -141,7 +140,7 @@ impl Sidecar {
                 };
 
                 debug!(
-                    "[Sidecar] Status Tracking: {:?} -> {:?}",
+                    "[Server] Status Tracking: {:?} -> {:?}",
                     get_status(&atomic),
                     next_status
                 );
@@ -178,14 +177,15 @@ impl Sidecar {
 
         if let Some(service) = service_guard.service_mut() {
             // is running
-            service.shutdown().await.expect("JB 没关掉");
+            if let Err(e) = service.shutdown().await {
+                warn!("[Server] Failed to shutdown existing service: {}", e);
+            }
         }
-        let process = self.spawner.spawn().await.expect("JB 没开起来");
-        let service = Service::from_coached_process(process);
-        info!("[Sidecar] Service spawned");
+        let service = Service::spawn(&self.spawner).await.expect("JB 没开起来");
+        info!("[Server] Service spawned");
 
         let time_rx = service.time_watch();
-        Sidecar::status_tracing_task(self.status.clone(), time_rx);
+        Server::status_tracing_task(self.status.clone(), time_rx);
 
         *service_guard = SidecarService::Running(service);
         self.set_status(SidecarStatus::Idle);
