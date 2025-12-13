@@ -53,7 +53,7 @@ impl OfflineCoach {
         );
         self.conn_connect().await.expect("Failed to connect");
         debug!("[OfflineCoach] Connected.");
-        let _ = self.init_resolver()?;
+        self.init_resolver()?;
         debug!("[OfflineCoach] CallResolver initialized.");
         self.call(command::trainer::Init { version: Some(5) })
             .await

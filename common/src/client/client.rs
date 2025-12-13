@@ -300,7 +300,7 @@ async fn wait_init_msg_from_channels(
     signal_rx: &mut mpsc::Receiver<ClientTxSignal>,
     context: &Context,
 ) -> Result<ClientRxData> {
-    let mut timeout = tokio::time::sleep(Duration::from_millis(INIT_MSG_TIMEOUT_MS));
+    let timeout = tokio::time::sleep(Duration::from_millis(INIT_MSG_TIMEOUT_MS));
     tokio::pin!(timeout);
 
     loop {
@@ -410,7 +410,7 @@ async fn sync_messages(
     let res = futures::future::join_all(tasks).await;
     let mut success_cnt = res.len();
 
-    let deleted = res.into_iter().filter_map(|res| res);
+    let deleted = res.into_iter().flatten();
     for id in deleted {
         success_cnt -= 1;
         if let None = consumers.remove(&id) {

@@ -7,7 +7,7 @@ mod ws;
 pub use config::{RoomConfig, WsConfig};
 pub use conn::{LazyProxyConnection, ProxyStatus};
 pub use error::{Error, Result};
-pub use room::{LazyRoom, Room, RoomInfo, RoomStatus};
+pub use room::{Room, RoomInfo};
 
 use ws::{WsConnection, WsConnector};
 

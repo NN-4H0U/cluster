@@ -1,7 +1,5 @@
 use super::Response;
 use axum::http::StatusCode;
-use axum::response::IntoResponse;
-use std::borrow::Cow;
 
 pub struct SidecarError<'a>(pub &'a sidecar::Error);
 

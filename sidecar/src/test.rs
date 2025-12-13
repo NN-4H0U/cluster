@@ -1,14 +1,13 @@
-pub use crate::*;
-
 #[tokio::test]
 async fn processes_spawn_and_shutdown_1k() {
+    use crate::process::ServerProcess;
     use futures::future::join_all;
     use itertools::Itertools;
     use rand::random_range;
 
     let mut tasks = vec![];
 
-    let mut builder = process::ServerProcess::spawner("rcssserver").await;
+    let mut builder = ServerProcess::spawner("rcssserver").await;
 
     for mut ports in (6000..=9000).chunks(3).into_iter() {
         if let Some((server, coach, sidecar)) = ports.next_tuple() {

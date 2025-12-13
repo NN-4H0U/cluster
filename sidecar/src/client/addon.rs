@@ -1,6 +1,5 @@
 use std::fmt::Debug;
 
-use arcstr::ArcStr;
 use tokio::sync::mpsc;
 
 use common::client::{RxData, TxData, TxSignal};

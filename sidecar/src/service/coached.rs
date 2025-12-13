@@ -1,6 +1,5 @@
 use crate::process::{self, ServerProcess, ServerProcessSpawner};
 use crate::trainer::{self, OfflineCoach};
-use log::error;
 use std::net::SocketAddr;
 use std::time::Duration;
 

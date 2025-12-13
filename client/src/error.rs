@@ -1,5 +1,4 @@
-use crate::room::{Room, RoomConfig};
-use std::net::SocketAddr;
+use crate::room::Room;
 use std::sync::Arc;
 
 #[derive(thiserror::Error, Debug)]

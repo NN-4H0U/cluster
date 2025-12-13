@@ -54,7 +54,7 @@ impl ServerProcessSpawner {
     fn build_start_cmd(&self) -> Command {
         let mut cmd = Command::new("stdbuf");
         cmd.arg("-oL").arg("-eL").arg(self.pgm_name);
-        cmd.args(&self.config.to_args());
+        cmd.args(self.config.to_args());
         cmd
     }
 

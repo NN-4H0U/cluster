@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use super::{Command, CommandAny, PlayerCommand};
+use super::{Command, PlayerCommand};
 use arcstr::{ArcStr, format, literal};
 
 #[derive(Debug)]
@@ -38,8 +38,6 @@ pub enum CommandInitError {}
 impl FromStr for CommandInitError {
     type Err = ();
     fn from_str(s: &str) -> Result<Self, <CommandInitError as FromStr>::Err> {
-        match s {
-            _ => Err(()),
-        }
+        Err(())
     }
 }

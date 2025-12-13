@@ -111,16 +111,14 @@ impl Receiver<PlayerCommand, RxData> {
                     }
                 };
 
-                if let Some(mut queue) = tasks_.get_mut(&kind) {
-                    if let Some(tx) = queue.value_mut().pop_front() {
-                        if tx.send(ret).is_err() {
+                if let Some(mut queue) = tasks_.get_mut(&kind)
+                    && let Some(tx) = queue.value_mut().pop_front()
+                        && tx.send(ret).is_err() {
                             debug!(
                                 "[CallResolver] Failed to send return to caller for [{}]",
                                 kind.encode()
                             );
                         }
-                    }
-                }
             }
         });
 
@@ -237,16 +235,14 @@ impl Receiver<TrainerCommand, RxData> {
                     }
                 };
 
-                if let Some(mut queue) = tasks_.get_mut(&kind) {
-                    if let Some(tx) = queue.value_mut().pop_front() {
-                        if tx.send(ret).is_err() {
+                if let Some(mut queue) = tasks_.get_mut(&kind)
+                    && let Some(tx) = queue.value_mut().pop_front()
+                        && tx.send(ret).is_err() {
                             debug!(
                                 "[CallResolver] Failed to send return to caller for [{}]",
                                 kind.encode()
                             );
                         }
-                    }
-                }
             }
         });
 
@@ -315,7 +311,7 @@ where
         WeakSender::new(tx, Arc::clone(&self.rx))
     }
 
-    pub fn close(&self) -> () {
+    pub fn close(&self) {
         self.rx.close()
     }
 }
@@ -326,7 +322,7 @@ where
     RX: Debug + Send + Sync + 'static,
 {
     fn close(&self) {
-        CallResolver::close(&self);
+        CallResolver::close(self);
     }
 }
 
@@ -358,7 +354,7 @@ where
         self.queue.entry(command).or_default().push_back(tx)
     }
 
-    pub fn close(&self) -> () {
+    pub fn close(&self) {
         self.recv_task.abort();
     }
 }

@@ -1,4 +1,3 @@
-use chrono::{DateTime, Utc};
 use futures::StreamExt;
 use log::{info, warn};
 use std::net::SocketAddr;
@@ -109,7 +108,7 @@ impl ProxyConnection {
     }
 
     pub fn status_now(&self) -> ProxyStatus {
-        self.status.borrow().clone()
+        *self.status.borrow()
     }
 
     pub fn info(&self) -> ProxyConnectionInfo {
@@ -304,18 +303,15 @@ impl ProxyConnection {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum ProxyStatus {
+    #[default]
     Idle,
     Running,
     Reconnecting,
     Terminated,
 }
 
-impl Default for ProxyStatus {
-    fn default() -> Self {
-        ProxyStatus::Idle
-    }
-}
 
 #[derive(Debug)]
 pub struct ProxyConnectionInfo {

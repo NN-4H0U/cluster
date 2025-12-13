@@ -5,7 +5,7 @@ mod service;
 pub use coached::{CoachedProcess, CoachedProcessSpawner};
 pub use service::Service;
 
-use log::{info, trace, warn};
+use log::{info, trace};
 
 pub const GAME_END_TIMESTEP: u16 = 6000;
 

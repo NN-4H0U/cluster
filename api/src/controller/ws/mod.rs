@@ -2,9 +2,8 @@ mod error;
 mod message;
 mod player;
 
-use super::{AppState, Response};
+use super::AppState;
 use axum::Router;
-use error::*;
 
 #[macro_export]
 macro_rules! ws_ensure {
@@ -14,7 +13,7 @@ macro_rules! ws_ensure {
             Ok(v) => v,
             Err(e) => {
                 let _ = sender
-                    .send(crate::model::signal::Signal::error(&e).into())
+                    .send($crate::model::signal::Signal::error(&e).into())
                     .await;
                 let _ = sender.close();
                 return;

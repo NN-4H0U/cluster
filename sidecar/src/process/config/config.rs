@@ -1,6 +1,6 @@
 use super::{CsvSaverConfig, PlayerConfig, ServerConfig};
 
-pub const LOG_DIR: &'static str = "./log";
+pub const LOG_DIR: &str = "./log";
 
 #[derive(Clone, Debug)]
 pub struct Config {

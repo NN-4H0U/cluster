@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use super::{Command, CommandAny, TrainerCommand};
+use super::{Command, TrainerCommand};
 use arcstr::{ArcStr, literal};
 use serde::{Deserialize, Serialize};
 
@@ -68,8 +68,6 @@ pub enum CommandTeamNamesError {}
 impl FromStr for CommandTeamNamesError {
     type Err = ();
     fn from_str(s: &str) -> Result<Self, <CommandTeamNamesError as FromStr>::Err> {
-        match s {
-            _ => Err(()),
-        }
+        Err(())
     }
 }

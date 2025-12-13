@@ -1,6 +1,4 @@
-use reqwest::Method;
-use reqwest::{Client, Request, Url};
-use std::net::SocketAddr;
+use reqwest::{Client, Url};
 
 pub enum AgonesApi {
     AllocateRoom,

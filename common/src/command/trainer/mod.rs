@@ -20,7 +20,7 @@ pub use recover::CommandRecover as Recover;
 pub use start::CommandStart as Start;
 pub use team_names::CommandTeamNames as TeamNames;
 
-use arcstr::{ArcStr, format, literal};
+use arcstr::{ArcStr, literal};
 use std::any::Any;
 
 use super::{Command, CommandAny};

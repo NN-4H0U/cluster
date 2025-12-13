@@ -66,9 +66,7 @@ impl WsConnector {
                 // finish when all ws_tx close
                 let task = tokio::spawn(async move {
                     while let Some(msg) = rx.recv().await {
-                        if let Err(e) = tx.send(msg).await {
-                            return Err(e);
-                        }
+                        tx.send(msg).await?
                     }
 
                     Ok(())

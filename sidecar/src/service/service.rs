@@ -41,7 +41,7 @@ impl Service {
     }
 
     pub fn time(&self) -> Option<u16> {
-        self.time_rx.borrow().clone()
+        *self.time_rx.borrow()
     }
 
     pub async fn shutdown(&mut self) -> Result<(), Box<dyn std::error::Error>> {

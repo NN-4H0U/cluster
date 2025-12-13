@@ -2,7 +2,7 @@ mod create;
 mod room;
 
 use axum::extract::{Query, State};
-use axum::{Json, Router, routing};
+use axum::{Router, routing};
 use serde::{Deserialize, Serialize};
 
 use super::{AppState, Error, Response};

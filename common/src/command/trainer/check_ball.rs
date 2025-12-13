@@ -4,7 +4,7 @@ use crate::types::BallPosition;
 use arcstr::{ArcStr, literal};
 use serde::{Deserialize, Serialize};
 
-use super::{Command, CommandAny, TrainerCommand};
+use super::{Command, TrainerCommand};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CommandCheckBall;
@@ -47,8 +47,6 @@ pub enum CommandCheckBallError {}
 impl FromStr for CommandCheckBallError {
     type Err = ();
     fn from_str(s: &str) -> Result<Self, <CommandCheckBallError as FromStr>::Err> {
-        match s {
-            _ => Err(()),
-        }
+        Err(())
     }
 }

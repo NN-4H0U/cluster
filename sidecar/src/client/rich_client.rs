@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use dashmap::DashMap;
-use log::{debug, trace};
+use log::trace;
 use tokio::sync::{OnceCell, mpsc};
 use tokio::time::error::Elapsed;
 use uuid::Uuid;

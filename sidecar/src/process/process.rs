@@ -73,7 +73,7 @@ impl ServerProcess {
                         info!("RcssServer child process exited with status: {:?}", status);
                         arc_pid.store(0, std::sync::atomic::Ordering::SeqCst);
                         let status_send = match &status {
-                            Ok(status) => Status::Returned(status.clone()),
+                            Ok(status) => Status::Returned(*status),
                             Err(e) => Status::Dead(e.to_string()),
                         };
                         status_tx.send(status_send).expect("Failed to send status");
@@ -130,7 +130,7 @@ impl ServerProcess {
             let status = child.wait().await;
             arc_pid.store(0, std::sync::atomic::Ordering::SeqCst);
             let status_send = match &status {
-                Ok(status) => Status::Returned(status.clone()),
+                Ok(status) => Status::Returned(*status),
                 Err(e) => Status::Dead(e.to_string()),
             };
             status_tx.send(status_send).expect("Failed to send status");

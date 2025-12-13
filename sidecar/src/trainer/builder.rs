@@ -1,6 +1,5 @@
 use crate::client::RichClientBuilder;
 use crate::trainer::OfflineCoach;
-use common::client;
 use std::ops::{Deref, DerefMut};
 
 #[derive(Clone, Debug)]
@@ -10,7 +9,7 @@ pub struct OfflineCoachBuilder {
 
 impl Default for OfflineCoachBuilder {
     fn default() -> Self {
-        let mut builder = RichClientBuilder::trainer();
+        let builder = RichClientBuilder::trainer();
         Self { builder }
     }
 }

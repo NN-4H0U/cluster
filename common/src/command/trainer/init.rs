@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use super::{Command, CommandAny, TrainerCommand};
+use super::{Command, TrainerCommand};
 use arcstr::{ArcStr, format, literal};
 use serde::{Deserialize, Serialize};
 
@@ -41,8 +41,6 @@ pub enum CommandInitError {}
 impl FromStr for CommandInitError {
     type Err = ();
     fn from_str(s: &str) -> Result<Self, <CommandInitError as FromStr>::Err> {
-        match s {
-            _ => Err(()),
-        }
+        Err(())
     }
 }

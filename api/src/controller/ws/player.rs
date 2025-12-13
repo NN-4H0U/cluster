@@ -32,7 +32,7 @@ async fn upgrade(
 
 use futures::stream::SplitStream;
 use futures::{SinkExt, StreamExt};
-use log::{debug, error, info, trace, warn};
+use log::{error, info, trace, warn};
 use tokio::task::JoinHandle;
 
 async fn handle_upgrade(
@@ -196,9 +196,7 @@ fn ws_into_mpsc_tx<const BUF_SIZE: usize>(
         let mut rx = rx;
 
         while let Some(msg) = rx.recv().await {
-            if let Err(e) = socket_tx.send(msg).await {
-                return Err(e);
-            }
+            socket_tx.send(msg).await?
         }
 
         Ok(())

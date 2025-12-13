@@ -2,7 +2,6 @@ use common::command::trainer::TrainerCommand;
 use common::command::{Command, CommandResult};
 use futures::AsyncReadExt;
 use log::{debug, info};
-use std::ops::Deref;
 use std::sync::Arc;
 use std::sync::atomic::AtomicU8;
 use tokio::sync::{RwLock, watch};
@@ -31,9 +30,9 @@ impl SidecarStatus {
     }
 }
 
-impl Into<u8> for SidecarStatus {
-    fn into(self) -> u8 {
-        self as u8
+impl From<SidecarStatus> for u8 {
+    fn from(val: SidecarStatus) -> Self {
+        val as u8
     }
 }
 

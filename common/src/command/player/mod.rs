@@ -2,7 +2,7 @@ pub mod init;
 
 pub use init::CommandInit;
 
-use arcstr::{ArcStr, format, literal};
+use arcstr::{ArcStr, literal};
 use std::any::Any;
 
 use super::{Command, CommandAny};

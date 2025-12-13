@@ -41,7 +41,7 @@ impl<const POLL_INT_MS: u64> TimeStatusAddon<POLL_INT_MS> {
     }
 
     fn time(&self) -> Option<u16> {
-        self.timestep.borrow().clone()
+        *self.timestep.borrow()
     }
 }
 
