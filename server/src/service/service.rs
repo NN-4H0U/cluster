@@ -1,5 +1,5 @@
-use super::{CoachedProcess, CoachedProcessSpawner};
 use super::addons;
+use super::{CoachedProcess, CoachedProcessSpawner};
 use common::command::trainer::TrainerCommand;
 use common::command::{Command, CommandResult};
 use log::info;
@@ -12,7 +12,9 @@ pub struct Service {
 }
 
 impl Service {
-    pub async fn spawn(spawner: &CoachedProcessSpawner) -> Result<Self, Box<dyn std::error::Error>> {
+    pub async fn spawn(
+        spawner: &CoachedProcessSpawner,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let process = spawner.spawn().await?;
         info!("[Service] Process spawned");
 

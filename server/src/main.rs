@@ -5,8 +5,8 @@ mod client;
 mod controller;
 mod error;
 mod process;
-mod service;
 mod server;
+mod service;
 mod test;
 mod trainer;
 
@@ -14,14 +14,14 @@ pub use error::{Error, Result};
 pub use process::Config as ServerConfig;
 pub use server::{Server, SidecarStatus};
 
-use std::env;
 use log::info;
+use std::env;
 
 pub const RCSS_PROCESS_NAME: &str = "rcssserver";
 pub const PEER_IP: std::net::IpAddr = std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST);
 
 async fn shutdown_signal() {
-    use tokio::signal::unix::{signal, SignalKind};
+    use tokio::signal::unix::{SignalKind, signal};
 
     let mut sigint = signal(SignalKind::interrupt()).unwrap();
     let mut sigterm = signal(SignalKind::terminate()).unwrap();
@@ -32,7 +32,8 @@ async fn shutdown_signal() {
             _ = sigterm.recv() => {},
         }
         info!("Shutdown signal received, aborting...");
-    }.await
+    }
+    .await
 }
 
 #[tokio::main]

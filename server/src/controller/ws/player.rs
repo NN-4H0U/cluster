@@ -8,8 +8,8 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use common::client::{Client, Config as ClientConfig, Error as ClientError};
 use crate::PEER_IP;
+use common::client::{Client, Config as ClientConfig, Error as ClientError};
 
 use super::AppState;
 

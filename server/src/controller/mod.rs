@@ -3,13 +3,13 @@ mod http;
 mod response;
 mod ws;
 
-use std::sync::{Arc, Weak};
 use axum::Router;
 use dashmap::DashMap;
-use uuid::Uuid;
+use std::sync::{Arc, Weak};
 use tokio::net::{TcpListener, ToSocketAddrs};
 use tokio::task::JoinHandle;
 use tower_http::trace::TraceLayer;
+use uuid::Uuid;
 
 pub use error::Error;
 pub use response::Response;
@@ -25,7 +25,7 @@ pub struct AppState {
 pub async fn listen<A, S>(addr: A, shutdown: Option<S>) -> JoinHandle<Result<(), String>>
 where
     A: ToSocketAddrs,
-    S: Future<Output=()> + Send + 'static,
+    S: Future<Output = ()> + Send + 'static,
 {
     let state = AppState {
         server: Arc::new(Server::new().await),
@@ -47,6 +47,7 @@ where
         match shutdown {
             Some(shutdown) => serve.with_graceful_shutdown(shutdown).await,
             None => serve.await,
-        }.map_err(|e| e.to_string())
+        }
+        .map_err(|e| e.to_string())
     })
 }

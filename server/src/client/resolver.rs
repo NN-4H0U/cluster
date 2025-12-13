@@ -113,12 +113,13 @@ impl Receiver<PlayerCommand, RxData> {
 
                 if let Some(mut queue) = tasks_.get_mut(&kind)
                     && let Some(tx) = queue.value_mut().pop_front()
-                        && tx.send(ret).is_err() {
-                            debug!(
-                                "[CallResolver] Failed to send return to caller for [{}]",
-                                kind.encode()
-                            );
-                        }
+                    && tx.send(ret).is_err()
+                {
+                    debug!(
+                        "[CallResolver] Failed to send return to caller for [{}]",
+                        kind.encode()
+                    );
+                }
             }
         });
 
@@ -237,12 +238,13 @@ impl Receiver<TrainerCommand, RxData> {
 
                 if let Some(mut queue) = tasks_.get_mut(&kind)
                     && let Some(tx) = queue.value_mut().pop_front()
-                        && tx.send(ret).is_err() {
-                            debug!(
-                                "[CallResolver] Failed to send return to caller for [{}]",
-                                kind.encode()
-                            );
-                        }
+                    && tx.send(ret).is_err()
+                {
+                    debug!(
+                        "[CallResolver] Failed to send return to caller for [{}]",
+                        kind.encode()
+                    );
+                }
             }
         });
 

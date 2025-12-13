@@ -2,8 +2,8 @@ mod client;
 mod controller;
 mod error;
 mod process;
-mod service;
 mod server;
+mod service;
 mod test;
 mod trainer;
 

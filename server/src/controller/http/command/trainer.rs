@@ -1,7 +1,7 @@
 use axum::extract::State;
 use axum::{Json, Router, routing};
-use common::command::trainer::*;
 use common::command::Command;
+use common::command::trainer::*;
 use serde::{Deserialize, Serialize};
 
 use super::CommandResponse;
