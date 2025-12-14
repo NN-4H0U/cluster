@@ -1,0 +1,19 @@
+[package]
+name = "service"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = ["standalone"]
+standalone = []
+
+[dependencies]
+common = { path = "../common" }
+process = { path = "../process" }
+
+agones = { version = "1.53", optional = true }
+
+thiserror = "2"
+futures.workspace = true
+tokio.workspace = true
+log.workspace = true
