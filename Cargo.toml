@@ -1,8 +1,10 @@
 [workspace]
 members = [
-    "sidecar",
     "common",
-    "api", "client",
+    "client",
+    "process",
+    "server",
+    "service",
 ]
 resolver = "3"
 
