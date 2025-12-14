@@ -2,7 +2,6 @@ mod controller;
 
 use std::env;
 
-
 pub const PEER_IP: std::net::IpAddr = std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST);
 
 #[tokio::main]

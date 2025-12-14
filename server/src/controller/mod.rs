@@ -15,21 +15,21 @@ pub use response::Response;
 use tower_http::trace::TraceLayer;
 use uuid::Uuid;
 
-use crate::Service;
+use service::Service;
 
 #[derive(Clone)]
 pub struct AppState {
-    sidecar: Arc<Service>,
+    service: Arc<Service>,
     players: Arc<DashMap<Uuid, Weak<common::client::Client>>>,
 }
 
 pub async fn listen<A: ToSocketAddrs>(addr: A) -> JoinHandle<Result<(), String>> {
     let state = AppState {
-        sidecar: Arc::new(Service::new().await),
+        service: Arc::new(Service::new().await),
         players: Arc::new(DashMap::new()),
     };
 
-    state.sidecar.spawn().await;
+    state.service.spawn().await;
 
     let app = Router::new()
         .merge(http::route("/", state.clone()))

@@ -1,13 +1,10 @@
 use super::Response;
 use axum::http::StatusCode;
 
-mod service {
-    pub(super) use crate::ServiceError as Error;
-}
 
-pub struct SidecarError<'a>(pub &'a service::Error);
+pub struct ServiceError<'a>(pub &'a service::Error);
 
-impl<'a> SidecarError<'a> {
+impl<'a> ServiceError<'a> {
     pub fn status_code(&self) -> StatusCode {
         match &self.0 {
             service::Error::ServerNotRunning { status: _ } => StatusCode::OK,
@@ -16,8 +13,8 @@ impl<'a> SidecarError<'a> {
     }
 }
 
-impl<'a> From<SidecarError<'a>> for Response {
-    fn from(value: SidecarError<'a>) -> Self {
+impl<'a> From<ServiceError<'a>> for Response {
+    fn from(value: ServiceError<'a>) -> Self {
         match &value.0 {
             service::Error::ServerNotRunning { status: _ } => {
                 Response::error("ServerNotRunning", "The process server is not running.")
