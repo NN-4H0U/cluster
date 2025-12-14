@@ -302,7 +302,8 @@ impl ProxyConnection {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum ProxyStatus {
     #[default]
     Idle,
@@ -310,6 +311,7 @@ pub enum ProxyStatus {
     Reconnecting,
     Terminated,
 }
+
 
 #[derive(Debug)]
 pub struct ProxyConnectionInfo {
