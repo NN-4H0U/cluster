@@ -1,5 +1,5 @@
 mod error;
-mod sidecar;
+mod service;
 
 pub use error::Error;
 

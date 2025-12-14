@@ -47,7 +47,7 @@ async fn handle_upgrade(
         let server_addr = SocketAddr::new(
             PEER_IP,
             state
-                .sidecar
+                .service
                 .config()
                 .server
                 .port

@@ -1,5 +1,5 @@
 use super::Response;
-use crate::controller::error::sidecar::SidecarError;
+use crate::controller::error::service::ServiceError;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response as AxumResponse};
 use serde_json::Value;
@@ -18,8 +18,8 @@ pub enum Error {
     #[error("Invalid argument: {value}")]
     InvalidArgument { value: String },
 
-    #[error("StandaloneService error: {source}")]
-    Sidecar {
+    #[error("Service error: {source}")]
+    Service {
         #[from]
         source: service::Error,
     },
@@ -31,7 +31,7 @@ impl Error {
             Error::IO { source: _ } => StatusCode::INTERNAL_SERVER_ERROR,
             Error::JSON { source: _ } => StatusCode::INTERNAL_SERVER_ERROR,
             Error::InvalidArgument { value: _ } => StatusCode::BAD_REQUEST,
-            Error::Sidecar { source } => SidecarError(source).status_code(),
+            Error::Service { source } => ServiceError(source).status_code(),
             Error::Genetic { value: _ } => StatusCode::OK,
         }
     }
@@ -41,7 +41,7 @@ impl From<Error> for Response {
     fn from(e: Error) -> Self {
         match e {
             Error::Genetic { value } => Response::fail(StatusCode::OK, value),
-            Error::Sidecar { source } => SidecarError(&source).into(),
+            Error::Service { source } => ServiceError(&source).into(),
             _ => Response::fail::<()>(e.status_code(), None),
         }
     }
