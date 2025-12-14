@@ -1,8 +1,8 @@
 [workspace]
 members = [
-    "server",
+    "sidecar",
     "common",
-    "client",
+    "api", "client",
 ]
 resolver = "3"
 

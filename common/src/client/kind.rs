@@ -10,6 +10,7 @@ pub enum ClientKind {
     Trainer = 2,
 }
 
+
 impl TryFrom<u8> for ClientKind {
     type Error = ();
 
