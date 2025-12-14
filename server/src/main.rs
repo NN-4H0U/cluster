@@ -1,9 +1,7 @@
 mod controller;
-mod model;
 
 use std::env;
 
-use service::{Error as ServiceError, Result as ServiceResult, Service, ServiceStatus};
 
 pub const PEER_IP: std::net::IpAddr = std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST);
 
