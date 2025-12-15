@@ -1,4 +1,4 @@
-use tokio::sync::{watch, OnceCell, RwLock};
+use tokio::sync::{watch, OnceCell, RwLock, RwLockWriteGuard};
 use log::{debug, info, warn};
 
 use common::command::{Command, CommandResult};
@@ -69,7 +69,7 @@ impl BaseService {
     }
 
     pub(crate) async fn spawn(&self, force: bool) -> Result<()> {
-        // >- base WRITE lock -<
+        // >- process WRITE lock -<
         let mut process_guard = self.process.write().await;
 
         if let Some(process) = process_guard.process_mut() {
@@ -81,6 +81,8 @@ impl BaseService {
                 warn!("[BaseService] Failed to shutdown existing process: {:?}. dropping", e);
             }
         }
+        self.set_status(ServerStatus::Uninitialized)
+            .expect("[BaseService] Status channel closed unexpectedly");
 
         let process = self.spawner.spawn().await.expect("JB 没开起来");
         let process = AddonProcess::from_coached_process(process);
@@ -94,7 +96,7 @@ impl BaseService {
         self.set_status(ServerStatus::Idle).expect("[BaseService] Status channel closed unexpectedly");
 
         Ok(())
-        // >- base WRITE free -<
+        // >- process WRITE free -<
     }
 
     pub async fn send_trainer_command<C>(&self, command: C) -> Result<CommandResult<C>>
@@ -104,6 +106,32 @@ impl BaseService {
             .send_trainer_command(command).await
             .map_err(|_| Error::Timeout { op: "send_trainer_command" })
     }
+
+    pub async fn shutdown(&self) -> Result<()> {
+        // >- process WRITE lock -<
+        let mut process_guard = self.process.write().await;
+
+        info!("[BaseService] Shutdown called, shutting down process if running...");
+
+        if let Some(process) = process_guard.process_mut() {
+            debug!("[BaseService] Shutting down existing process...");
+            if let Err(e) = process.shutdown().await {
+                warn!("[BaseService] Failed to shutdown existing process: {:?}.", e);
+                return Err(Error::ProcessFailedToShutdown);
+            }
+
+            self.set_status(ServerStatus::Shutdown)
+                .expect("[BaseService] Status channel closed unexpectedly");
+        } else {
+            debug!("[BaseService] Shutdown called but no process to shutdown.");
+        }
+
+        info!("[BaseService] Process shutdown complete.");
+
+        Ok(())
+        // >- process WRITE free -<
+    }
+
     async fn status_tracing_task(
         status_tx: watch::Sender<ServerStatus>,
         mut time_rx: watch::Receiver<Option<u16>>

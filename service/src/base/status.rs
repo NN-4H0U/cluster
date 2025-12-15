@@ -5,11 +5,16 @@ pub enum ServerStatus {
     Idle,
     Simulating,
     Finished,
+    Shutdown,
 }
 
 impl ServerStatus {
     pub fn is_running(&self) -> bool {
         matches!(self, ServerStatus::Simulating)
+    }
+    
+    pub fn is_healthy(&self) -> bool {
+        matches!(self, ServerStatus::Simulating | ServerStatus::Idle)
     }
 
     pub fn is_idle(&self) -> bool {
@@ -18,6 +23,10 @@ impl ServerStatus {
 
     pub fn is_initialized(&self) -> bool {
         matches!(self, ServerStatus::Uninitialized)
+    }
+    
+    pub fn is_finished(&self) -> bool {
+        matches!(self, ServerStatus::Finished)
     }
 }
 
@@ -36,6 +45,7 @@ impl TryFrom<u8> for ServerStatus {
             1 => Ok(ServerStatus::Idle),
             2 => Ok(ServerStatus::Simulating),
             3 => Ok(ServerStatus::Finished),
+            4 => Ok(ServerStatus::Shutdown),
             _ => Err(()),
         }
     }

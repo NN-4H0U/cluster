@@ -7,7 +7,10 @@ pub enum Error {
     ServerStillRunningToSpawn,
 
     #[error("Operation '{op}' timed out.")]
-    Timeout { op: &'static str, }
+    Timeout { op: &'static str, },
+
+    #[error("Failed to shutdown the process.")]
+    ProcessFailedToShutdown,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

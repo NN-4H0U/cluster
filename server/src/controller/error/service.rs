@@ -9,6 +9,7 @@ impl<'a> ServiceError<'a> {
             service::Error::ServerNotRunning { status: _ } => StatusCode::OK,
             service::Error::ServerStillRunningToSpawn => StatusCode::OK,
             service::Error::Timeout { op: _ } => StatusCode::REQUEST_TIMEOUT,
+            service::Error::ProcessFailedToShutdown => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }
@@ -22,9 +23,15 @@ impl<'a> From<ServiceError<'a>> for Response {
             service::Error::ServerStillRunningToSpawn => Response::error(
                 "ServerStillRunningToSpawn", &value.0.to_string(),
             ),
-            service::Error::Timeout { op } => {
+            service::Error::Timeout { op: _ } => {
                 Response::error("Timeout", &value.0.to_string())
             },
+            service::Error::ProcessFailedToShutdown => {
+                Response::error(
+                    "ProcessFailedToShutdown",
+                    "Failed to shutdown process due to internal error."
+                )
+            }
         }
     }
 }
