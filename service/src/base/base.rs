@@ -1,0 +1,167 @@
+use tokio::sync::{watch, OnceCell, RwLock};
+use log::{debug, info, warn};
+
+use common::command::{Command, CommandResult};
+use common::command::trainer::TrainerCommand;
+use process::{CoachedProcessSpawner, ProcessConfig};
+
+use crate::{Error, Result};
+use super::{AddonProcess, ServerStatus};
+
+#[derive(Debug)]
+pub enum OptionedProcess {
+    Uninitialized,
+    Running(AddonProcess),
+}
+impl OptionedProcess {
+    pub fn process(&self) -> Option<&AddonProcess> {
+        match self {
+            OptionedProcess::Uninitialized => None,
+            OptionedProcess::Running(s) => Some(s),
+        }
+    }
+
+    pub fn process_mut(&mut self) -> Option<&mut AddonProcess> {
+        match self {
+            OptionedProcess::Uninitialized => None,
+            OptionedProcess::Running(s) => Some(s),
+        }
+    }
+
+    pub async fn send_trainer_command<C>(&self, command: C) -> Option<CommandResult<C>>
+    where C: Command<Kind = TrainerCommand>,
+    {
+        self.process()?.send_trainer_command(command).await.ok()
+    }
+
+    pub fn is_initialized(&self) -> bool {
+        !matches!(self, OptionedProcess::Uninitialized)
+    }
+
+    pub fn is_running(&self) -> bool {
+        matches!(self, OptionedProcess::Running(_))
+    }
+}
+
+
+#[derive(Debug)]
+pub struct BaseService {
+    spawner: CoachedProcessSpawner,
+    process: RwLock<OptionedProcess>,
+    status_tx: watch::Sender<ServerStatus>,
+    status_rx: watch::Receiver<ServerStatus>,
+}
+
+#[must_use]
+pub(crate) fn set_status(watch: &watch::Sender<ServerStatus>, status: ServerStatus) -> Option<()> {
+    watch.send(status).ok()
+}
+
+pub(crate) fn get_status(watch: &watch::Receiver<ServerStatus>) -> ServerStatus {
+    *watch.borrow()
+}
+
+impl BaseService {
+    pub(crate) async fn new(spawner: CoachedProcessSpawner) -> Self {
+        let process = RwLock::new(OptionedProcess::Uninitialized);
+        let (status_tx, status_rx) = watch::channel(ServerStatus::Uninitialized);
+        Self { spawner, process, status_tx, status_rx }
+    }
+
+    pub(crate) async fn spawn(&self, force: bool) -> Result<()> {
+        // >- base WRITE lock -<
+        let mut process_guard = self.process.write().await;
+
+        if let Some(process) = process_guard.process_mut() {
+            // is running
+            if !force { return Err(Error::ServerStillRunningToSpawn) }
+
+            warn!("[BaseService] Force restarting the process...");
+            if let Err(e) = process.shutdown().await {
+                warn!("[BaseService] Failed to shutdown existing process: {:?}. dropping", e);
+            }
+        }
+
+        let process = self.spawner.spawn().await.expect("JB 没开起来");
+        let process = AddonProcess::from_coached_process(process);
+        info!("[BaseService] AddonProcess spawned");
+
+        let time_rx = process.time_watch();
+        tokio::spawn(Self::status_tracing_task(self.status_tx.clone(), time_rx));
+        info!("[BaseService] Status tracing task spawned");
+
+        *process_guard = OptionedProcess::Running(process);
+        self.set_status(ServerStatus::Idle).expect("[BaseService] Status channel closed unexpectedly");
+
+        Ok(())
+        // >- base WRITE free -<
+    }
+
+    pub async fn send_trainer_command<C>(&self, command: C) -> Result<CommandResult<C>>
+    where C: Command<Kind = TrainerCommand> {
+        self.process.read().await.process()
+            .ok_or(Error::ServerNotRunning { status: ServerStatus::Uninitialized })?
+            .send_trainer_command(command).await
+            .map_err(|_| Error::Timeout { op: "send_trainer_command" })
+    }
+    async fn status_tracing_task(
+        status_tx: watch::Sender<ServerStatus>,
+        mut time_rx: watch::Receiver<Option<u16>>
+    ) {
+        let status_rx = status_tx.subscribe();
+        loop {
+            let timestep = match time_rx.changed().await {
+                Ok(_) => *time_rx.borrow(),
+                Err(_) => {
+                    let _ = set_status(&status_tx, ServerStatus::Finished);
+                    info!("[BaseService] Status Tracking ended: time_rx channel closed.");
+                    break;
+                }
+            };
+
+            let next_status = match (get_status(&status_rx), timestep) {
+                (ServerStatus::Uninitialized, Some(0)) => ServerStatus::Idle,
+                (ServerStatus::Uninitialized, Some(_)) => ServerStatus::Simulating,
+                (ServerStatus::Idle, Some(t)) if t > 0 && t < 6000 => {
+                    ServerStatus::Simulating
+                }
+                (ServerStatus::Idle, Some(t)) if t >= 6000 => ServerStatus::Finished,
+                (ServerStatus::Simulating, Some(t)) if t >= 6000 => ServerStatus::Finished,
+                _ => continue,
+            };
+
+            debug!("[BaseService] Status Tracking: {:?} -> {:?}",
+                get_status(&status_rx),next_status);
+
+            if set_status(&status_tx, next_status).is_none() {
+                info!("[BaseService] Status Tracking ended: status_tx channel closed.");
+                break;
+            }
+        }
+    }
+
+    #[must_use]
+    pub(crate) fn set_status(&self, status: ServerStatus) -> Option<()> {
+        set_status(&self.status_tx, status)
+    }
+
+    pub fn status_now(&self) -> ServerStatus {
+        get_status(&self.status_rx)
+    }
+
+    pub fn status(&self) -> watch::Receiver<ServerStatus> {
+        self.status_rx.clone()
+    }
+
+    pub async fn time_now(&self) -> Option<u16> {
+        self.process.read().await.process().and_then(|p| p.time())
+    }
+
+    pub async fn time(&self) -> Option<watch::Receiver<Option<u16>>> {
+        self.process.read().await.process().map(|p| p.time_watch())
+    }
+
+    pub fn config(&self) -> &ProcessConfig {
+        &self.spawner.process.config
+    }
+}

@@ -23,13 +23,13 @@ pub struct AppState {
     players: Arc<DashMap<Uuid, Weak<common::client::Client>>>,
 }
 
-pub async fn listen<A: ToSocketAddrs>(addr: A) -> JoinHandle<Result<(), String>> {
+pub async fn listen<A: ToSocketAddrs>(addr: A, service: Service) -> JoinHandle<Result<(), String>> {
     let state = AppState {
-        service: Arc::new(Service::new().await),
+        service: Arc::new(service),
         players: Arc::new(DashMap::new()),
     };
 
-    state.service.spawn().await;
+    state.service.spawn().await.expect("FATAL: Service failed to start");
 
     let app = Router::new()
         .merge(http::route("/", state.clone()))

@@ -21,6 +21,7 @@ agones = ["service/agones"]
 
 [dependencies]
 common = { path = "../common" }
+process = { path = "../process" }
 service = { path = "../service" }
 
 futures.workspace = true
