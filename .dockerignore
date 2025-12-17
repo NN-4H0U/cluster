@@ -1,0 +1,44 @@
+# Build artifacts
+target/
+**/*.rs.bk
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Documentation
+*.md
+!README.md
+docs/
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.docker/
+.dockerignore
+
+# Kubernetes / Deployment
+*.yaml
+*.yml
+!Cargo.toml
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Misc
+LICENSE
+*.log
+*.tmp
+.env*
+.DS_Store
+Thumbs.db
