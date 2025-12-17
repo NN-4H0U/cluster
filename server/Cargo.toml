@@ -21,8 +21,9 @@ agones = ["service/agones"]
 
 [dependencies]
 common = { path = "../common" }
-process = { path = "../process" }
 service = { path = "../service" }
+
+clap = { version = "4", features = ["derive"] }
 
 futures.workspace = true
 tokio.workspace = true

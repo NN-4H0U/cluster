@@ -12,6 +12,7 @@ common = { path = "../common" }
 process = { path = "../process" }
 
 agones = { version = "1.53", optional = true }
+clap = { version = "4.5.53", features = ["derive"] }
 tokio-util = "0.7"
 
 thiserror = "2"

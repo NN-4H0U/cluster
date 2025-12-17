@@ -10,6 +10,8 @@ impl<'a> ServiceError<'a> {
             service::Error::ServerStillRunningToSpawn => StatusCode::OK,
             service::Error::Timeout { op: _ } => StatusCode::REQUEST_TIMEOUT,
             service::Error::ProcessFailedToShutdown => StatusCode::INTERNAL_SERVER_ERROR,
+            #[cfg(feature = "agones")]
+            service::Error::AgonesSdkFailToConnect(_) => unreachable!(),
         }
     }
 }
@@ -31,7 +33,9 @@ impl<'a> From<ServiceError<'a>> for Response {
                     "ProcessFailedToShutdown",
                     "Failed to shutdown process due to internal error."
                 )
-            }
+            },
+            #[cfg(feature = "agones")]
+            service::Error::AgonesSdkFailToConnect(_) => unreachable!(),
         }
     }
 }

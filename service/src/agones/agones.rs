@@ -7,24 +7,13 @@ use tokio::sync::{mpsc, watch, RwLock};
 use tokio_util::sync::CancellationToken;
 use agones::Sdk as AgonesSdk;
 use process::CoachedProcessSpawner;
-
 use crate::{Error, Result, ServerStatus};
-use super::BaseService;
-
-#[derive(Debug, Clone)]
-pub struct Config {
-    pub health_check_interval: Duration,
-    pub auto_shutdown: AutoShutdownConfig,
-}
-
-#[derive(Debug, Clone)]
-pub struct AutoShutdownConfig {
-    pub on_finish: bool,
-}
+use crate::agones::config::AgonesAutoShutdownConfig;
+use super::{AgonesConfig, AgonesArgs, BaseService};
 
 pub struct AgonesService {
     sdk:    Arc<RwLock<AgonesSdk>>,
-    cfg:    Config,
+    cfg:    AgonesConfig,
     service: BaseService,
 
     cancel_token: CancellationToken,
@@ -54,18 +43,40 @@ impl Display for AgonesService {
 }
 
 impl AgonesService {
-    pub async fn new(spawner: CoachedProcessSpawner) -> Self {
-        let sdk = AgonesSdk::new(None, None).await.unwrap();
-        let sdk = Arc::new(RwLock::new(sdk));
+    pub async fn from_args(args: AgonesArgs) -> Result<Self> {
+        let sdk = agones::Sdk::new(
+            args.agones_port,
+            args.agones_keep_alive.map(|s| Duration::from_secs(s)),
+        ).await.map_err(|e| Error::AgonesSdkFailToConnect(e))?;
 
-        let service = BaseService::new(spawner).await;
-        let config = Config {
-            health_check_interval: Duration::from_secs(5),
-            auto_shutdown: AutoShutdownConfig {
-                on_finish: true,
-            },
+        let base = {
+            let args = args.base_args;
+
+            let mut spawner = CoachedProcessSpawner::new().await;
+            let rcss_log_dir = args.rcss_log_dir.leak(); // STRING LEAK
+            spawner
+                .with_ports(args.player_port, args.trainer_port, args.coach_port)
+                .with_sync_mode(args.rcss_sync)
+                .with_log_dir(rcss_log_dir);
+
+            BaseService::new(spawner).await
         };
 
+        let config = {
+            let mut cfg = AgonesConfig::default();
+            cfg.health_check_interval = Duration::from_secs(args.health_check_interval);
+            cfg.shutdown.on_finish = args.auto_shutdown_on_finish;
+            cfg.sdk.port = args.agones_port;
+            cfg.sdk.keep_alive = args.agones_keep_alive.map(|s| Duration::from_secs(s));
+
+            cfg
+        };
+
+        Ok(AgonesService::new(sdk, base, config))
+    }
+
+    pub(super) fn new(sdk: agones::Sdk, service: BaseService, config: AgonesConfig) -> Self {
+        let sdk = Arc::new(RwLock::new(sdk));
         let cancel_token = CancellationToken::new();
         let (shutdown_tx, shutdown_rx) = watch::channel(None);
 
@@ -90,7 +101,7 @@ impl AgonesService {
 
         let _shutdown_sig_task = tokio::spawn(
             Self::run_shutdown_signal(
-                self.cfg.auto_shutdown.clone(),
+                self.cfg.shutdown.clone(),
                 self.service.status(),
                 self.shutdown_tx.clone(),
             )
@@ -146,7 +157,7 @@ impl AgonesService {
     }
 
     async fn run_shutdown_signal(
-        shutdown_config: AutoShutdownConfig,
+        shutdown_config: AgonesAutoShutdownConfig,
         status_rx: watch::Receiver<ServerStatus>,
         signal_tx: watch::Sender<Option<()>>,
     ) {
