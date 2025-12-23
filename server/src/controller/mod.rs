@@ -3,6 +3,7 @@ mod http;
 mod response;
 mod ws;
 
+use std::pin::Pin;
 use std::sync::{Arc, Weak};
 
 use axum::Router;
@@ -53,7 +54,7 @@ impl AppState {
         debug!("[AppState] Shutdown notifier received, starting polling service shutdown...");
         
         let mut interval = tokio::time::interval(Self::CLEANER_POLL_INTERVAL.to_std().unwrap());
-        let start_at = chrono::Utc::now();
+        let start_at = Utc::now();
         
         loop {
             interval.tick().await;
@@ -104,18 +105,25 @@ pub async fn listen(
         let serve = axum::serve(listener, app);
         info!("Listening on http://{addr}");
 
-        let res = match shutdown {
-            Some(signal) => {
-                let signal = async {
-                    signal.await;
-                    let _ = shutdown_tx.send(());
-                    debug!("[Server] Shutdown signal received in controller");
-                };
-                serve.with_graceful_shutdown(signal).await
-            },
-            None => serve.await,
+        let shutdown: Pin<Box<dyn Future<Output=()> + Send>> = match shutdown {
+            Some(signal) => Box::pin(signal),
+            None => Box::pin(futures::future::pending::<()>()),
         };
 
-        res.map_err(|e| e.to_string())
+        let signal = async {
+            tokio::select! {
+                _ = shutdown => {
+                    debug!("[Server] Shutdown signal received, shutting down...");
+                },
+                _ = tokio::signal::ctrl_c() => {
+                    debug!("[Server] Ctrl-C received, shutting down...");
+                },
+            }
+
+            let _ = shutdown_tx.send(());
+            debug!("[Server] Shutdown signal sent to AppState cleaner");
+        };
+
+        serve.with_graceful_shutdown(signal).await.map_err(|e| e.to_string())
     })
 }

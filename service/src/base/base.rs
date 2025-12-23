@@ -1,4 +1,4 @@
-use tokio::sync::{watch, OnceCell, RwLock, RwLockWriteGuard};
+use tokio::sync::{watch, RwLock};
 use log::{debug, info, warn};
 
 use common::command::{Command, CommandResult};
@@ -74,7 +74,9 @@ impl BaseService {
 
         if let Some(process) = process_guard.process_mut() {
             // is running
-            if !force { return Err(Error::ServerStillRunningToSpawn) }
+            if !force && self.status_now().is_running() {
+                return Err(Error::ServerStillRunningToSpawn)
+            }
 
             warn!("[BaseService] Force restarting the process...");
             if let Err(e) = process.shutdown().await {
