@@ -22,7 +22,7 @@ impl ServerStatus {
     }
 
     pub fn is_initialized(&self) -> bool {
-        matches!(self, ServerStatus::Uninitialized)
+        !matches!(self, ServerStatus::Uninitialized)
     }
     
     pub fn is_finished(&self) -> bool {
