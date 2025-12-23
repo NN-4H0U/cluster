@@ -1,11 +1,11 @@
 use log::info;
-use tokio::sync::watch;
-
+use tokio::sync::{watch, mpsc};
+use tokio::time::error::Elapsed;
 use crate::addons;
 
 use common::command::trainer::TrainerCommand;
 use common::command::{Command, CommandResult};
-use process::CoachedProcess;
+use process::{CoachedProcess, CoachedProcessSpawner};
 
 #[derive(Debug)]
 pub struct AddonProcess {
@@ -14,12 +14,16 @@ pub struct AddonProcess {
 }
 
 impl AddonProcess {
-    pub async fn new() -> Self {
+    pub async fn new() -> Result<Self, Box<dyn std::error::Error>> {
         let spawner = CoachedProcess::spawner().await;
-        let process = spawner.spawn().await.unwrap();
+        Self::spawn(&spawner).await
+    }
+
+    pub async fn spawn(spawner: &CoachedProcessSpawner) -> Result<Self, Box<dyn std::error::Error>> {
+        let process = spawner.spawn().await?;
         info!("[AddonProcess] Process spawned");
 
-        Self::from_coached_process(process)
+        Ok(Self::from_coached_process(process))
     }
 
     pub fn from_coached_process(process: CoachedProcess) -> Self {
@@ -34,8 +38,8 @@ impl AddonProcess {
     pub async fn send_trainer_command<C: Command<Kind = TrainerCommand>>(
         &self,
         command: C,
-    ) -> CommandResult<C> {
-        self.process.coach().call(command).await.unwrap()
+    ) -> Result<CommandResult<C>, Elapsed> {
+        self.process.coach().call(command).await
     }
 
     pub fn time_watch(&self) -> watch::Receiver<Option<u16>> {

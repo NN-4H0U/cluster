@@ -18,7 +18,7 @@ pub enum Error {
     #[error("Invalid argument: {value}")]
     InvalidArgument { value: String },
 
-    #[error("Service error: {source}")]
+    #[error("BaseService error: {source}")]
     Service {
         #[from]
         source: service::Error,

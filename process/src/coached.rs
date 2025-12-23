@@ -20,12 +20,21 @@ impl CoachedProcessSpawner {
 
     pub fn with_ports(&mut self, port: u16, coach_port: u16, olcoach_port: u16) -> &mut Self {
         use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-        self.process
-            .config_mut()
+        self.process_config_mut()
             .with_ports(port, coach_port, olcoach_port);
         self.coach
             .with_peer(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), coach_port));
 
+        self
+    }
+    
+    pub fn with_sync_mode(&mut self, sync: bool) -> &mut Self {
+        self.process_config_mut().with_sync(sync);
+        self
+    }
+    
+    pub fn with_log_dir(&mut self, log_dir: &'static str) -> &mut Self {
+        self.process_config_mut().with_log_dir(log_dir);
         self
     }
 

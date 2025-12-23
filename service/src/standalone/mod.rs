@@ -1,6 +1,10 @@
-mod process;
+mod config;
+mod args;
 mod standalone;
 
-use process::AddonProcess;
+use crate::base::{BaseService, BaseArgs};
 
 pub use standalone::StandaloneService;
+pub use config::StandaloneConfig;
+pub use args::StandaloneArgs;
+
