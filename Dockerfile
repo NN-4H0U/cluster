@@ -29,7 +29,7 @@ RUN cargo build --release --bin agones-server --features "agones"
 FROM alpine:latest
 LABEL version="0.1.1"
 LABEL authors="enricliu"
-LABEL repositry="https://github.com/EnricLiu/rcss_cluster.git"
+LABEL repository="https://github.com/EnricLiu/rcss_cluster.git"
 
 
 WORKDIR /usr/local/bin
