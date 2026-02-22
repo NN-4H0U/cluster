@@ -7,11 +7,11 @@ mod utils;
 
 use super::Schema;
 
-pub use config::Config;
+pub use config::ConfigV1;
 
-pub use team::{Teams, Team};
-pub use player::Player;
-pub use policy::Policy;
+pub use team::{TeamsV1, TeamV1, TeamSideV1};
+pub use player::PlayerV1;
+pub use policy::PolicyV1;
 
 pub use position::Position;
 
@@ -21,7 +21,7 @@ mod tests {
     #[test]
     fn test_parse_config() -> Result<(), Box<dyn std::error::Error>> {
         let config = include_str!("../../../config.json");
-        let config: super::Config = serde_json::from_str(config)?;
+        let config: super::ConfigV1 = serde_json::from_str(config)?;
         println!("{:?}",config);
 
         Ok(())

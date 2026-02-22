@@ -2,16 +2,16 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Eq, PartialEq, Clone, Debug)]
 #[serde(rename_all="snake_case")]
-pub enum TeamSide {
+pub enum TeamSideV1 {
     Left,
     Right
 }
 
-impl TeamSide {
-    pub fn allies() -> TeamSide {
-        TeamSide::Left
+impl TeamSideV1 {
+    pub fn allies() -> TeamSideV1 {
+        TeamSideV1::Left
     }
-    pub fn opponents() -> TeamSide {
-        TeamSide::Right
+    pub fn opponents() -> TeamSideV1 {
+        TeamSideV1::Right
     }
 }

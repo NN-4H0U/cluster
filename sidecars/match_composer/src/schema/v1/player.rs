@@ -1,25 +1,25 @@
 use serde::{Deserialize, Serialize};
 use crate::schema::Schema;
 use crate::schema::v1::utils::pos_in_court;
-use super::{Policy, Position};
+use super::{PolicyV1, Position};
 
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
-pub struct Player {
+pub struct PlayerV1 {
     pub unum: u8,
     #[serde(default)] // false
     pub goalie: bool,
-    #[serde(default="Policy::agent")]
-    pub policy: Policy,
+    #[serde(default="PolicyV1::agent")]
+    pub policy: PolicyV1,
 
     #[serde(default)]
-    pub init_state: PlayerInitState,
+    pub init_state: PlayerInitStateV1,
 
     #[serde(default)]
     pub blocklist: PlayerActionList,
 }
 
-impl Schema for Player {
+impl Schema for PlayerV1 {
     fn verify(&self) -> Result<(), &'static str> {
         if self.unum == 0 {
             return Err("Player unum cannot be 0");
@@ -39,12 +39,12 @@ impl Schema for Player {
 
 /// Default all unset
 #[derive(Deserialize, Serialize, Default, Clone, Debug)]
-pub struct PlayerInitState {
+pub struct PlayerInitStateV1 {
     pos: Option<Position>,
     stamina: Option<u16>,
 }
 
-impl Schema for PlayerInitState {
+impl Schema for PlayerInitStateV1 {
     fn verify(&self) -> Result<(), &'static str> {
         if let Some(pos) = &self.pos {
             pos_in_court(pos.x, pos.y)?;

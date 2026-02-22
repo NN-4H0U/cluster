@@ -1,16 +1,16 @@
 use serde::{Deserialize, Serialize};
-use crate::schema::v1::{Schema, Player, Team};
-use super::TeamSide;
+use crate::schema::v1::{Schema, PlayerV1, TeamV1};
+use super::TeamSideV1;
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
-pub struct AlliesTeam {
+pub struct AlliesTeamV1 {
     pub name: String,
-    #[serde(default="TeamSide::allies")]
-    pub side: TeamSide,
-    pub players: Vec<Player>,
+    #[serde(default="TeamSideV1::allies")]
+    pub side: TeamSideV1,
+    pub players: Vec<PlayerV1>,
 }
 
-impl Schema for AlliesTeam {
+impl Schema for AlliesTeamV1 {
     fn verify(&self) -> Result<(), &'static str> {
         if self.name.is_empty() {
             return Err("Team name cannot be empty")
@@ -36,9 +36,9 @@ impl Schema for AlliesTeam {
     }
 }
 
-impl Into<Team> for AlliesTeam {
-    fn into(self) -> Team {
-        Team {
+impl Into<TeamV1> for AlliesTeamV1 {
+    fn into(self) -> TeamV1 {
+        TeamV1 {
             name: self.name,
             side: self.side,
             players: self.players,

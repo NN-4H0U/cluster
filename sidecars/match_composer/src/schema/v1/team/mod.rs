@@ -3,24 +3,24 @@ mod allies;
 mod opponents;
 mod team_side;
 
-pub use team::Team;
-pub use team_side::TeamSide;
+pub use team::TeamV1;
+pub use team_side::TeamSideV1;
 
 
 use serde::{Deserialize, Serialize};
 use crate::schema::Schema;
 
-use allies::AlliesTeam;
-use opponents::OpponentsTeam;
+use allies::AlliesTeamV1;
+use opponents::OpponentsTeamV1;
 
 
 #[derive(Serialize, Clone, Debug)]
-pub struct Teams {
-    pub allies:     Team,
-    pub opponents:  Team,
+pub struct TeamsV1 {
+    pub allies: TeamV1,
+    pub opponents: TeamV1,
 }
 
-impl Schema for Teams {
+impl Schema for TeamsV1 {
     fn verify(&self) -> Result<(), &'static str> {
         if self.allies.side == self.opponents.side {
             return Err("Teams cannot be on the same side")
@@ -36,7 +36,7 @@ impl Schema for Teams {
 }
 
 use serde::de::{self, Deserializer, MapAccess, Visitor};
-impl<'de> Deserialize<'de> for Teams {
+impl<'de> Deserialize<'de> for TeamsV1 {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         deserializer.deserialize_map(TeamsVisitor)
     }
@@ -44,17 +44,17 @@ impl<'de> Deserialize<'de> for Teams {
 
 struct TeamsVisitor;
 impl<'de> Visitor<'de> for TeamsVisitor {
-    type Value = Teams;
+    type Value = TeamsV1;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         formatter.write_str("a map with 'allies' and 'opponents' keys")
     }
 
-    fn visit_map<V>(self, mut map: V) -> Result<Teams, V::Error>
+    fn visit_map<V>(self, mut map: V) -> Result<TeamsV1, V::Error>
     where V: MapAccess<'de>,
     {
-        let mut allies: Option<AlliesTeam> = None;
-        let mut opponents: Option<OpponentsTeam> = None;
+        let mut allies: Option<AlliesTeamV1> = None;
+        let mut opponents: Option<OpponentsTeamV1> = None;
 
         while let Some(key) = map.next_key::<String>()? {
             match key.as_str() {
@@ -79,7 +79,7 @@ impl<'de> Visitor<'de> for TeamsVisitor {
         let allies = allies.ok_or_else(|| de::Error::missing_field("allies"))?;
         let opponents = opponents.ok_or_else(|| de::Error::missing_field("opponents"))?;
 
-        Ok(Teams {
+        Ok(TeamsV1 {
             allies: allies.into(),
             opponents: opponents.into(),
         })

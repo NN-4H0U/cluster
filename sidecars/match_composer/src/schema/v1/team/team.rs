@@ -1,15 +1,15 @@
 use serde::{Deserialize, Serialize};
-use crate::schema::v1::{Schema, Player};
-use super::TeamSide;
+use crate::schema::v1::{Schema, PlayerV1};
+use super::TeamSideV1;
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
-pub struct Team {
+pub struct TeamV1 {
     pub name: String,
-    pub side: TeamSide,
-    pub players: Vec<Player>,
+    pub side: TeamSideV1,
+    pub players: Vec<PlayerV1>,
 }
 
-impl Schema for Team {
+impl Schema for TeamV1 {
     fn verify(&self) -> Result<(), &'static str> {
         if self.name.is_empty() {
             return Err("Team name cannot be empty")

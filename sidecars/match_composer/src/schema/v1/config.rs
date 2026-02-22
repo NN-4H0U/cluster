@@ -1,24 +1,38 @@
 use std::collections::HashMap;
+use std::net::Ipv4Addr;
 use serde::{Deserialize, Serialize};
 
 use crate::schema::v1::utils::pos_in_court;
 
-use super::{Schema, Teams, Position};
+use super::{Schema, TeamsV1, Position};
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
-pub struct Config {
-    teams:  Teams,
+pub struct ConfigV1 {
+    #[serde(default = "default_host")]
+    pub host: Ipv4Addr,
+    #[serde(default = "default_port")]
+    pub port: u16,
+    
+    pub teams: TeamsV1,
     #[serde(default)]
-    referee:    Referee,
+    pub referee: RefereeV1,
     #[serde(default)]
-    stopping:   StoppingEvent,
+    pub stopping: StoppingEventV1,
     #[serde(default)]
-    init_state: GlobalInitState,
+    pub init_state: GlobalInitStateV1,
     #[serde(default)]
-    env:    Option<HashMap<String, String>>
+    pub env:    Option<HashMap<String, String>>
 }
 
-impl Schema for Config {
+const fn default_host() -> Ipv4Addr {
+    Ipv4Addr::new(127, 0, 0, 1)
+}
+
+const fn default_port() -> u16 {
+    6000
+}
+
+impl Schema for ConfigV1 {
     fn verify(&self) -> Result<(), &'static str> {
         self.teams.verify()?;
         self.referee.verify()?;
@@ -28,11 +42,11 @@ impl Schema for Config {
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
-pub struct Referee {
+pub struct RefereeV1 {
     enable: bool
 }
 
-impl Default for Referee {
+impl Default for RefereeV1 {
     fn default() -> Self {
         Self {
             enable: true
@@ -40,31 +54,31 @@ impl Default for Referee {
     }
 }
 
-impl Schema for Referee {
+impl Schema for RefereeV1 {
     fn verify(&self) -> Result<(), &'static str> {
         Ok(())
     }
 }
 
 #[derive(Deserialize, Serialize, Default, Clone, Debug)]
-pub struct StoppingEvent {
+pub struct StoppingEventV1 {
     time_up: Option<u16>,
     goal_l: Option<u8>,
     goal_r: Option<u8>,
 }
 
-impl Schema for StoppingEvent {
+impl Schema for StoppingEventV1 {
     fn verify(&self) -> Result<(), &'static str> {
         Ok(())
     }
 }
 
 #[derive(Deserialize, Serialize, Default, Clone, Debug)]
-pub struct GlobalInitState {
+pub struct GlobalInitStateV1 {
     ball: Option<Position>
 }
 
-impl Schema for GlobalInitState {
+impl Schema for GlobalInitStateV1 {
     fn verify(&self) -> Result<(), &'static str> {
         if let Some(ball) = &self.ball {
             pos_in_court(ball.x, ball.y)?;
