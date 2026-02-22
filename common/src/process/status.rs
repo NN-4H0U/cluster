@@ -3,7 +3,6 @@ use std::process::ExitStatus;
 #[derive(Clone, Debug)]
 pub enum ProcessStatus {
     Init,
-    Booting,
     Running,
     Returned(ExitStatus),
     Dead(String),
@@ -28,7 +27,6 @@ impl ProcessStatus {
     pub fn ord(&self) -> usize {
         match self {
             ProcessStatus::Init => 0,
-            ProcessStatus::Booting => 1,
             ProcessStatus::Running => 2,
             ProcessStatus::Returned(_) => 3,
             ProcessStatus::Dead(_) => 4,

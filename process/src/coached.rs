@@ -52,8 +52,9 @@ impl CoachedProcessSpawner {
                 .map_err(|e| Error::SpawnProcess(e))?;
             let res = process.until_ready(Some(Duration::from_secs(2))).await;
             if res.is_err() {
-                match &res {
-                    Err(process::Error::TimeoutWaitingReady) => {
+                let err = res.unwrap_err();
+                match &err {
+                    process::Error::Process(process::ProcessError::TimeoutWaitingReady) => {
                         error!("CoachedProcessSpawner: process failed to become ready in time, killing process");
                         match process.shutdown().await {
                             Ok(exit_status) => {
@@ -64,10 +65,9 @@ impl CoachedProcessSpawner {
                             },
                         }
                     },
-                    Err(e) => {
+                    e => {
                         error!("CoachedProcessSpawner: fatal error while waiting for process to become ready: {}", e);
                     }
-                    Ok(()) => unreachable!("unreachable"),
                 }
 
                 let stdout_trace = process.stdout_logs().await;
@@ -76,7 +76,7 @@ impl CoachedProcessSpawner {
                 error!("CoachedProcessSpawner: process stdout:\n{:?}", stdout_trace);
                 error!("CoachedProcessSpawner: process stderr:\n{:?}", stderr_trace);
 
-                return Err(Error::SpawnProcess(res.unwrap_err()))
+                return Err(crate::Error::SpawnProcess(err))
             }
             process
         };
