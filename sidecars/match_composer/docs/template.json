@@ -15,14 +15,14 @@
   },
   "teams": {
     "opponents": {
-      "name": "Helios-base",
+      "name": "HB",
       "players": [
         {
           "unum": 1,
           "goalie": true,
           "policy": {
             "kind": "bot",
-            "image": "helios-base/Helios-Base"
+            "image": "HELIOS/helios-base"
           },
           "init_state": {
             "pos": {
@@ -41,7 +41,7 @@
           "goalie": false,
           "policy": {
             "kind": "bot",
-            "image": "*"
+            "image": "HELIOS/helios-base"
           },
           "init_state": {
             "pos": {
