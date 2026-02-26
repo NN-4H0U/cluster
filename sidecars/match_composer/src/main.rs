@@ -45,7 +45,7 @@ use crate::schema::v1::ConfigV1;
 
 #[tokio::main]
 async fn main() {
-    let schema: ConfigV1 = serde_json::from_str(include_str!("../config.json")).unwrap();
+    let schema: ConfigV1 = serde_json::from_str(include_str!("../docs/template.json")).unwrap();
     let log_root = PathBuf::from("logs");
     let config = MatchComposerConfig::from_schema(schema, log_root).unwrap();
 

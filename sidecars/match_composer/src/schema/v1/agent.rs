@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::net::Ipv4Addr;
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(tag = "agent", rename_all = "lowercase")]
 pub enum AgentV1 {
     SSP {
         image: String,

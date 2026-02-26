@@ -22,7 +22,7 @@ pub use position::Position;
 mod tests {
     #[test]
     fn test_parse_config() -> Result<(), Box<dyn std::error::Error>> {
-        let config = include_str!("../../../config.json");
+        let config = include_str!("../../../docs/template.json");
         let config: super::ConfigV1 = serde_json::from_str(config)?;
         println!("{:?}",config);
 
