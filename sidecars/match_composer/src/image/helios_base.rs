@@ -1,24 +1,22 @@
-use tokio::process::Command;
-use crate::config::{ImageConfig, PlayerProcessConfig};
+use crate::config::{ImageMeta, PlayerProcessConfig};
 use crate::image::image::Image;
+use tokio::process::Command;
 
 pub struct HeliosBaseImage {
-    pub cfg: ImageConfig,
+    pub cfg: ImageMeta,
 }
 
-impl From<ImageConfig> for HeliosBaseImage {
-    fn from(cfg: ImageConfig) -> Self {
-        HeliosBaseImage {
-            cfg,
-        }
+impl From<ImageMeta> for HeliosBaseImage {
+    fn from(cfg: ImageMeta) -> Self {
+        HeliosBaseImage { cfg }
     }
 }
 
 impl Image for HeliosBaseImage {
-    fn cfg(&self) -> &ImageConfig {
+    fn meta(&self) -> &ImageMeta {
         &self.cfg
     }
-    
+
     fn cmd(&self) -> Command {
         Command::new(self.path().join("start_player.sh"))
     }
@@ -30,11 +28,11 @@ impl Image for HeliosBaseImage {
             .arg("-p")
             .arg(config.port.to_string())
             .arg("-t")
-            .arg(config.team_name)
+            .arg(&config.team_name)
             .arg("-u")
             .arg(config.unum.to_string())
             .arg("--log-dir")
-            .arg(config.log_path);
+            .arg(&config.log_path);
 
         if config.goalie {
             cmd.arg("-g");

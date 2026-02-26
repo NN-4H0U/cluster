@@ -1,21 +1,19 @@
-use tokio::process::Command;
-use crate::config::{ImageConfig, PlayerProcessConfig};
+use crate::config::{ImageMeta, PlayerProcessConfig};
 use crate::image::image::Image;
+use tokio::process::Command;
 
 pub struct SSPImage {
-    pub cfg: ImageConfig,
+    pub cfg: ImageMeta,
 }
 
-impl From<ImageConfig> for SSPImage {
-    fn from(cfg: ImageConfig) -> Self {
-        SSPImage {
-            cfg,
-        }
+impl From<ImageMeta> for SSPImage {
+    fn from(cfg: ImageMeta) -> Self {
+        SSPImage { cfg }
     }
 }
 
 impl Image for SSPImage {
-    fn cfg(&self) -> &ImageConfig {
+    fn meta(&self) -> &ImageMeta {
         &self.cfg
     }
 

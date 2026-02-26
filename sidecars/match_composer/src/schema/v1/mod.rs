@@ -4,12 +4,14 @@ mod policy;
 mod position;
 mod config;
 mod utils;
+mod agent;
 
 use super::Schema;
 
 pub use config::ConfigV1;
 
 pub use team::{TeamsV1, TeamV1, TeamSideV1};
+pub use agent::AgentV1;
 pub use player::PlayerV1;
 pub use policy::PolicyV1;
 

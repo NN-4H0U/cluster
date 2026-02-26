@@ -1,20 +1,20 @@
+use crate::config::{ImageMeta, PlayerProcessConfig};
 use std::path::Path;
 use tokio::process::Command;
-use crate::config::{ImageConfig, PlayerProcessConfig};
 
 pub trait Image {
-    fn cfg(&self) -> &ImageConfig;
+    fn meta(&self) -> &ImageMeta;
     fn provider(&self) -> &str {
-        &self.cfg().provider
+        &self.meta().provider
     }
     fn model(&self) -> &str {
-        &self.cfg().model
+        &self.meta().model
     }
 
     fn path(&self) -> &Path {
-        &self.cfg().path
+        &self.meta().path
     }
-    
+
     fn cmd(&self) -> Command;
     fn player_cmd(&self, config: &PlayerProcessConfig) -> Command;
 }

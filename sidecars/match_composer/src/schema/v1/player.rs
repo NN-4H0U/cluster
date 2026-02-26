@@ -9,7 +9,7 @@ pub struct PlayerV1 {
     pub unum: u8,
     #[serde(default)] // false
     pub goalie: bool,
-    #[serde(default="PolicyV1::agent")]
+    #[serde(default="PolicyV1::helios_base")]
     pub policy: PolicyV1,
 
     #[serde(default)]

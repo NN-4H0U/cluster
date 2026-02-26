@@ -1,14 +1,11 @@
-use std::path::PathBuf;
-
-use crate::image::{Image, ImageProcess};
 use crate::config::AgentConfig;
+use crate::image::{Image, ImageProcess};
 use super::Policy;
 
-pub type AgentPolicy<'a> = Policy<AgentConfig<'a>>;
+pub type AgentPolicy = Policy<AgentConfig>;
 
-
-impl<'a> AgentPolicy<'a> {
-    pub fn new(config: AgentConfig<'a>, image: Box<dyn Image>) -> Self {
+impl AgentPolicy {
+    pub fn new(config: AgentConfig, image: Box<dyn Image>) -> Self {
         AgentPolicy {
             cfg: config,
             image,
@@ -20,7 +17,7 @@ impl<'a> AgentPolicy<'a> {
         cmd
             .arg("-h").arg(self.cfg.server.host.to_string())
             .arg("-p").arg(self.cfg.server.port.to_string())
-            .arg("-t").arg(self.cfg.team)
+            .arg("-t").arg(&self.cfg.team)
             .arg("-u").arg(self.cfg.unum.to_string())
             .arg("--g-ip").arg(self.cfg.grpc.host.to_string())
             .arg("--g-port").arg(self.cfg.grpc.port.to_string());
@@ -30,8 +27,10 @@ impl<'a> AgentPolicy<'a> {
                 .arg("--log-dir")
                 .arg(log_dir);
         }
+        
+        println!("Spawning agent with command: {:?}", cmd);
 
-        ImageProcess::spawn(cmd, Some(PathBuf::from("./logs/test.log").into_boxed_path()))
+        ImageProcess::spawn(cmd, self.cfg.log_path.clone().map(|p| p.into_boxed_path()))
             .expect("Failed to spawn bot process")
     }
 

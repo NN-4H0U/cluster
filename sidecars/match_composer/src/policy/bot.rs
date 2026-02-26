@@ -1,14 +1,11 @@
-use std::path::PathBuf;
-
-use crate::image::{Image, ImageProcess};
 use crate::config::BotConfig;
+use crate::image::{Image, ImageProcess};
 use super::Policy;
 
-pub type BotPolicy<'a> = Policy<BotConfig<'a>>;
+pub type BotPolicy = Policy<BotConfig>;
 
-
-impl<'a> BotPolicy<'a> {
-    pub fn new(config: BotConfig<'a>, image: Box<dyn Image>) -> Self {
+impl BotPolicy {
+    pub fn new(config: BotConfig, image: Box<dyn Image>) -> Self {
         BotPolicy {
             cfg: config,
             image,
@@ -17,7 +14,7 @@ impl<'a> BotPolicy<'a> {
 
     pub async fn spawn(&self) -> ImageProcess {
         let cmd = self.image.player_cmd(&self.cfg.player());
-        ImageProcess::spawn(cmd, Some(PathBuf::from("./logs/test.log").into_boxed_path()))
+        ImageProcess::spawn(cmd, Some(self.cfg.log_path.clone().into_boxed_path()))
             .expect("Failed to spawn bot process")
     }
 
