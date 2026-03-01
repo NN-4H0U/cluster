@@ -1,7 +1,7 @@
 use std::process::ExitStatus;
 use std::sync::Arc;
 use std::time::Duration;
-use common::process::{Process, ProcessStatus};
+use common::process::{Process, ProcessError, ProcessStatus as Status, ProcessStatusKind};
 use common::utils::ringbuf::OverwriteRB;
 use tokio::process::Child;
 use tokio::sync::{watch, RwLock};
@@ -16,23 +16,6 @@ pub const READY_LINE: &str = "Hit CTRL-C to exit";
 pub struct ServerProcess {
     inner: Process,
     status_rx: watch::Receiver<Status>,
-    stdout: Arc<RwLock<OverwriteRB<String, 32>>>,
-    stderr: Arc<RwLock<OverwriteRB<String, 32>>>,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum Status {
-    Init,
-    Booting,
-    Running,
-    Returned(ExitStatus),
-    Dead(String),
-}
-
-impl Status {
-    pub fn is_ready(&self) -> bool {
-        matches!(self, Status::Running)
-    }
 }
 
 impl ServerProcess {
@@ -42,73 +25,69 @@ impl ServerProcess {
         ServerProcessSpawner::new(pgm_name).await
     }
 
-    pub(crate) async fn try_from(child: Child) -> Result<Self> {
+    pub(crate) async fn try_from(child: Child) -> Result<ServerProcess> {
         let inner = Process::new(child)?;
-        
-        let (status_tx, status_rx) = watch::channel(Status::Init);
-        let stdout_rb = Arc::new(RwLock::new(OverwriteRB::new()));
-        let stderr_rb = Arc::new(RwLock::new(OverwriteRB::new()));
+
+        let (status_tx, status_rx) = watch::channel(Status::init());
+        let stdout_rb = status_rx.borrow().stdout.clone();
+        let stderr_rb = status_rx.borrow().stderr.clone();
 
         let mut stdout_rx = inner.subscribe_stdout();
         let mut stderr_rx = inner.subscribe_stderr();
-        
-        let stdout_rb_ = stdout_rb.clone();
-        let stderr_rb_ = stderr_rb.clone();
+
         let mut inner_status_rx = inner.status_watch();
-        
+
+        status_tx.send_modify(|s| s.as_booting());
+
+        const STDOUT_BUF_CAPACITY: usize = 32;
+        const STDERR_BUF_CAPACITY: usize = 8;
+        let mut stdout_buf = Vec::with_capacity(STDOUT_BUF_CAPACITY);
+        let mut stderr_buf = Vec::with_capacity(STDERR_BUF_CAPACITY);
+
         // Task to process logs and update status
         tokio::spawn(async move {
-            let _ = status_tx.send(Status::Booting);
-
             loop {
                 tokio::select! {
                     Ok(line) = stdout_rx.recv() => {
                         if line == READY_LINE {
-                            if status_tx.send(Status::Running).is_err() {
-                                warn!("Failed to send Running status: receiver dropped");
-                            }
+                            status_tx.send_modify(|s| s.as_running())
                         }
-                        stdout_rb_.write().await.push(line);
+                        stdout_buf.push(line);
+                        if stdout_buf.len() >= STDOUT_BUF_CAPACITY {
+                            stdout_rb.write().await.push_many(stdout_buf.drain(..));
+                        }
                     }
                     Ok(line) = stderr_rx.recv() => {
-                        stderr_rb_.write().await.push(line);
+                        stderr_buf.push(line);
+                        if stderr_buf.len() >= STDERR_BUF_CAPACITY {
+                            stderr_rb.write().await.push_many(stderr_buf.drain(..));
+                        }
                     }
-                    
-                    // Monitor inner process status to propagate exit
-                    _ = inner_status_rx.changed() => { // This is NOT correct for watch channel usage in loop directly like this without handling potential errors or old values correctly if not careful, but let's see.
-                        // Actually, watch channel `changed()` waits for a change.
-                        // We should read the new status.
-                         let status = inner_status_rx.borrow().clone();
-                         match status {
-                             ProcessStatus::Returned(s) => {
-                                 let _ = status_tx.send(Status::Returned(s));
-                                 break;
-                             },
-                             ProcessStatus::Dead(s) => {
-                                 let _ = status_tx.send(Status::Dead(s));
-                                 break;
-                             },
-                             _ => {}
-                         }
-                    }
+
+                    _ = inner_status_rx.changed() => {
+                        if inner_status_rx.borrow().is_finished() {
+                            break
+                        }
+                    },
                 }
+            }
+
+            if !stdout_buf.is_empty() {
+                stdout_rb.write().await.push_many(stdout_buf.drain(..));
+            }
+            if !stderr_buf.is_empty() {
+                stderr_rb.write().await.push_many(stderr_buf.drain(..));
             }
         });
 
-        Ok(Self { 
+        Ok(Self {
             inner,
             status_rx,
-            stdout: stdout_rb,
-            stderr: stderr_rb,
         })
     }
 
-    pub async fn stdout_logs(&self) -> Vec<String> {
-        self.stdout.read().await.to_vec()
-    }
-
-    pub async fn stderr_logs(&self) -> Vec<String> {
-        self.stderr.read().await.to_vec()
+    pub fn status_now(&self) -> Status {
+        self.status_rx.borrow().clone()
     }
 
     pub async fn shutdown(&mut self) -> Result<ExitStatus> {
@@ -119,7 +98,7 @@ impl ServerProcess {
         self.inner.pid()
     }
 
-    pub fn status(&self) -> watch::Receiver<Status> {
+    pub fn status_watch(&self) -> watch::Receiver<Status> {
         self.status_rx.clone()
     }
 
@@ -130,17 +109,17 @@ impl ServerProcess {
         let task = self.status_rx.wait_for(|s| s.is_ready());
         let ret = match timeout {
             Some(timeout) => tokio::time::timeout(timeout, task).await
-                .map_err(|_| Error::Process(common::process::ProcessError::TimeoutWaitingReady))?,
+                .map_err(|_| Error::Process(ProcessError::TimeoutWaitingReady))?,
             None => task.await,
         };
-        
+
         if ret.is_ok() {
             return Ok(());
         }
-        
+
         drop(ret);
         error!("ServerProcess::until_ready: UNEXPECTED watch channel released!!!!!");
-        Err(Error::Process(common::process::ProcessError::ChildNotReady))
+        Err(Error::Process(ProcessError::ChildNotReady))
     }
 }
 
@@ -195,9 +174,36 @@ mod tests {
         let child = create_test_child(script).await;
         let mut process = ServerProcess::try_from(child).await.unwrap();
         tokio::time::sleep(Duration::from_millis(600)).await;
-        let logs = process.stdout_logs().await;
+
+        let logs = process.status_now().stdout_logs().await;
         assert!(!logs.is_empty(), "Should capture stdout logs");
-        assert!(logs.contains(&"line1".to_string()));
+        assert!(logs.contains(&"line1".to_string()), "Should contain line1");
+        assert!(logs.contains(&"line2".to_string()), "Should contain line2");
+        assert!(logs.contains(&"line3".to_string()), "Should contain line3");
+
+        let _ = process.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn test_stderr_capture() {
+        let script = r#"
+            echo "error1" >&2
+            echo "error2" >&2
+            sleep 1
+        "#;
+        let child = create_test_child(script).await;
+
+        let mut process = ServerProcess::try_from(child).await.unwrap();
+
+        // Wait for logs to be captured
+        tokio::time::sleep(Duration::from_millis(600)).await;
+
+        let logs = process.status_now().stderr_logs().await;
+
+        assert!(!logs.is_empty(), "Should capture stderr logs");
+        assert!(logs.contains(&"error1".to_string()), "Should contain error1");
+        assert!(logs.contains(&"error2".to_string()), "Should contain error2");
+
         let _ = process.shutdown().await;
     }
 
@@ -221,11 +227,71 @@ mod tests {
         let child = create_test_child("sleep 5").await;
         let mut process = ServerProcess::try_from(child).await.unwrap();
         let result = process.until_ready(Some(Duration::from_millis(100))).await;
-        assert!(result.is_err());
         match result.unwrap_err() {
             Error::Process(ProcessError::TimeoutWaitingReady) => {},
             e => panic!("Unexpected error: {:?}", e),
         }
+        let _ = process.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn test_graceful_shutdown() {
+        let child = create_test_child("exec sleep 10").await;
+        let mut process = ServerProcess::try_from(child).await.unwrap();
+
+        // Give process time to start
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        let result = process.shutdown().await;
+        println!("{result:?}");
+
+        assert!(result.is_ok(), "Graceful shutdown should succeed");
+
+        // PID should be cleared
+        assert_eq!(process.pid(), None, "PID should be cleared after shutdown");
+    }
+
+    #[tokio::test]
+    async fn test_shutdown_already_exited_process() {
+        // Process that exits immediately
+        let child = create_test_child("exit 0").await;
+        let mut process = ServerProcess::try_from(child).await.unwrap();
+
+        // Wait for process to exit
+        tokio::time::sleep(Duration::from_millis(200)).await;
+
+        let result = process.shutdown().await;
+
+        // Should handle already-exited process gracefully
+        assert!(result.is_ok(), "Should handle already-exited process");
+    }
+
+    #[tokio::test]
+    async fn test_ringbuf_overflow_stdout() {
+        // Generate more than 32 lines (the ring buffer capacity)
+        let mut script = String::from("#!/bin/sh\n");
+        for i in 0..50 {
+            script.push_str(&format!("echo 'line{}'\n", i));
+        }
+        script.push_str("sleep 1\n");
+
+        let child = create_test_child(&script).await;
+        let mut process = ServerProcess::try_from(child).await.unwrap();
+
+        // Wait for all logs to be captured
+        tokio::time::sleep(Duration::from_millis(800)).await;
+
+        let logs = process.status_now().stdout_logs().await;
+
+        // Ring buffer should contain at most 32 entries
+        assert!(logs.len() <= 32, "Ring buffer should not exceed capacity of 32");
+
+        // Should contain the most recent lines
+        assert!(logs.contains(&"line49".to_string()), "Should contain the last line");
+
+        // Should NOT contain the earliest lines (they were overwritten)
+        assert!(!logs.contains(&"line0".to_string()), "Earliest lines should be overwritten");
+
         let _ = process.shutdown().await;
     }
 }

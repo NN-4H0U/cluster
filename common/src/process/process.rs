@@ -10,7 +10,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Child;
 use tokio::sync::{broadcast, mpsc, watch};
 use tokio::task::JoinHandle;
-
+use crate::process::ProcessStatusKind;
 use super::status::ProcessStatus;
 use super::error::{ProcessError, Result};
 
@@ -42,7 +42,7 @@ impl Process {
         let arc_pid = Arc::new(AtomicU32::new(pid));
         let pid = Pid::from_raw(pid as i32);
 
-        let (status_tx, status_rx) = watch::channel(ProcessStatus::Init);
+        let (status_tx, status_rx) = watch::channel(ProcessStatus::init());
         let (sig_tx, mut sig_rx) = mpsc::channel(4);
 
         let (stdout_tx, _) = broadcast::channel(32);
@@ -74,23 +74,18 @@ impl Process {
                 BufReader::new(stderr).lines()
             };
 
-            // Transition directly to Running as requested
-            if status_tx.send(ProcessStatus::Running).is_err() {
-                warn!("Failed to send Running status: receiver dropped");
-            }
+            // Transition directly to Booting as requested
+            status_tx.send_modify(|s| s.as_booting());
 
             loop {
                 tokio::select! {
                     status = child.wait() => {
                         info!("Child process exited with status: {:?}", status);
                         arc_pid.store(0, std::sync::atomic::Ordering::SeqCst);
-                        let status_send = match &status {
-                            Ok(status) => ProcessStatus::Returned(*status),
-                            Err(e) => ProcessStatus::Dead(e.to_string()),
-                        };
-                        if status_tx.send(status_send).is_err() {
-                            warn!("Failed to send exit status: receiver dropped");
-                        }
+                        status_tx.send_modify(|s| match &status {
+                            Ok(status) => s.as_returned(*status),
+                            Err(e) => s.as_dead(e.to_string()),
+                        });
                         return (status.map_err(ProcessError::Io), child);
                     },
 
@@ -137,13 +132,10 @@ impl Process {
 
             let status = child.wait().await;
             arc_pid.store(0, std::sync::atomic::Ordering::SeqCst);
-            let status_send = match &status {
-                Ok(status) => ProcessStatus::Returned(*status),
-                Err(e) => ProcessStatus::Dead(e.to_string()),
-            };
-            if status_tx.send(status_send).is_err() {
-                warn!("Failed to send final status: receiver dropped");
-            }
+            status_tx.send_modify(|s| match &status {
+                Ok(status) => s.as_returned(*status),
+                Err(e) => s.as_dead(e.to_string()),
+            });
             (status.map_err(ProcessError::Io), child)
         });
 
@@ -244,14 +236,15 @@ impl Process {
 
     fn try_ready(&self) -> Result<bool> {
         let status = self.status_rx.borrow().clone();
-        match status {
-            ProcessStatus::Dead(e) => Err(ProcessError::ChildDead {
+        match status.status() {
+            ProcessStatusKind::Dead(e) => Err(ProcessError::ChildDead {
                 pid: self.pid(),
                 error: e.clone(),
             }),
-            ProcessStatus::Returned(status) => Err(ProcessError::ChildReturned(status)),
-            ProcessStatus::Running => Ok(true),
-            ProcessStatus::Init => Ok(false),
+            ProcessStatusKind::Returned(status) => Err(ProcessError::ChildReturned(status)),
+            ProcessStatusKind::Running => Ok(true),
+            ProcessStatusKind::Init => Ok(false),
+            ProcessStatusKind::Booting => Ok(false),
         }
     }
 

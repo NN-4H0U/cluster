@@ -169,7 +169,7 @@ impl Team {
             .player_processes
             .last()
             .map(|p| p.status_watch().borrow().clone())
-            .unwrap_or(ProcessStatus::Init);
+            .unwrap_or(ProcessStatus::init());
 
         let mut state = self.status_state.lock().unwrap();
         state.players.push(PlayerStatus { unum, kind, status });
