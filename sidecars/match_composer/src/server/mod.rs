@@ -154,10 +154,7 @@ impl AppState {
 
     async fn build_config(&self, config: Option<ConfigV1>) -> Result<ConfigV1, Error> {
         match config {
-            Some(cfg) => {
-                *self.cfg.write().await = Some(cfg.clone());
-                Ok(cfg)
-            }
+            Some(cfg) => Ok(cfg),
             _ => {
                 self.cfg.read().await.clone().ok_or_else(
                     || Error::bad_request("No config provided and no previous config found.")
@@ -175,7 +172,7 @@ impl AppState {
         let log_root = self.log_root.clone().join(started_at.format("%Y%m%d_%H%M%S").to_string());
 
         let composer_config =
-            MatchComposerConfig::from_schema(config, Some(log_root))
+            MatchComposerConfig::from_schema(config.clone(), Some(log_root))
                 .map_err(|e| Error::bad_request(format!("Invalid config: {e}")))?;
 
         let mut composer = MatchComposer::new(composer_config, self.hub_path.as_ref())
@@ -188,6 +185,7 @@ impl AppState {
 
         let agents = composer.agent_conns();
         *state = ComposerState::Running { composer, started_at };
+        *self.cfg.write().await = Some(config);
         Ok(agents)
     }
 }
