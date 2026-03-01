@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use tokio::sync::oneshot;
+use tokio::sync::{oneshot, Mutex};
 use chrono::{Utc, Duration};
 use log::{debug, error, info};
 
@@ -9,7 +9,7 @@ use crate::proxy::manager::SessionManager;
 
 #[derive(Clone)]
 pub struct AppState {
-    pub(crate) service: Arc<Service>,
+    pub(crate) service: Arc<Mutex<Service>>,
     pub(crate) session: Arc<SessionManager>,
 }
 
@@ -18,7 +18,7 @@ impl AppState {
     pub const CLEANER_TIMEOUT: Duration = Duration::seconds(30);
     
     pub fn new(service: Service, shutdown_notifier: Option<oneshot::Receiver<()>>) -> Self {
-        let service = Arc::new(service);
+        let service = Arc::new(Mutex::new(service));
         
         if let Some(shutdown_notifier) = shutdown_notifier {
             tokio::spawn(Self::run_wait_for_shutdown_cleaner(
@@ -32,7 +32,7 @@ impl AppState {
     }
     
     async fn run_wait_for_shutdown_cleaner(
-        mut service: Arc<Service>,
+        service: Arc<Mutex<Service>>,
         shutdown_notifier: oneshot::Receiver<()>,
     ) {
         shutdown_notifier.await.ok();
@@ -44,17 +44,15 @@ impl AppState {
         loop {
             interval.tick().await;
             
-            if let Some(service) = Arc::get_mut(&mut service) {
-                match service.shutdown().await {
-                    Ok(_) => {
-                        info!("[AppState] Service shutdown completed in {}ms.", 
-                            (Utc::now() - start_at).num_milliseconds());
-                        break;
-                    },
-                    Err(e) => {
-                        error!("[AppState] Service shutdown failed: {}. Retrying...", e);
-                    },
-                }
+            match service.lock().await.shutdown().await {
+                Ok(_) => {
+                    info!("[AppState] Service shutdown completed in {}ms.", 
+                        (Utc::now() - start_at).num_milliseconds());
+                    break;
+                },
+                Err(e) => {
+                    error!("[AppState] Service shutdown failed: {}. Retrying...", e);
+                },
             }
             
             if (Utc::now() - start_at) > Self::CLEANER_TIMEOUT {
