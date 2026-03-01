@@ -65,7 +65,11 @@ impl ServerProcess {
                     }
 
                     _ = inner_status_rx.changed() => {
-                        if inner_status_rx.borrow().is_finished() {
+                        let inner = inner_status_rx.borrow().clone();
+                        if inner.is_finished() {
+                            status_tx.send_modify(|s| {
+                                s.kind = inner.kind.clone();
+                            });
                             break
                         }
                     },

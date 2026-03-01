@@ -67,7 +67,7 @@ impl AppState {
         debug!("[AppState] Shutdown notifier received, cleaning up composer...");
 
         let mut interval =
-            tokio::time::interval(Self::CLEANER_POLL_INTERVAL.to_std().unwrap());
+            tokio::time::interval(Self::CLEANER_POLL_INTERVAL.to_std().expect("CLEANER_POLL_INTERVAL must be a positive duration"));
         let start_at = Utc::now();
 
         loop {
@@ -154,7 +154,10 @@ impl AppState {
 
     async fn build_config(&self, config: Option<ConfigV1>) -> Result<ConfigV1, Error> {
         match config {
-            Some(cfg) => Ok(cfg),
+            Some(cfg) => {
+                *self.cfg.write().await = Some(cfg.clone());
+                Ok(cfg)
+            }
             _ => {
                 self.cfg.read().await.clone().ok_or_else(
                     || Error::bad_request("No config provided and no previous config found.")

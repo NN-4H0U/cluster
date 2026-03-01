@@ -22,6 +22,6 @@ impl Image for SSPImage {
     }
 
     fn player_cmd(&self, config: &PlayerProcessConfig) -> Command {
-        todo!("Not implemented for SSPImage")
+        unimplemented!("SSPImage uses cmd() with manual args, player_cmd() is not supported")
     }
 }
