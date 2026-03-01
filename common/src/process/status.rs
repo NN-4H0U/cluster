@@ -3,7 +3,7 @@ use std::process::ExitStatus;
 
 use tokio::sync::RwLock;
 
-use common::utils::ringbuf::OverwriteRB;
+use crate::utils::ringbuf::OverwriteRB;
 
 #[derive(Clone, Debug)]
 pub struct ProcessStatus<const OUT: usize = 32, const ERR: usize = 32> {
@@ -24,39 +24,37 @@ impl<const OUT: usize, const ERR: usize> ProcessStatus<OUT, ERR> {
     pub fn init() -> Self {
         Self::new()
     }
-    
+
     pub fn as_init(&mut self) {
         self.kind = ProcessStatusKind::Init;
     }
-    
     pub fn as_booting(&mut self) {
         self.kind = ProcessStatusKind::Booting;
     }
-    
     pub fn as_running(&mut self) {
         self.kind = ProcessStatusKind::Running;
     }
-    
+
     pub fn as_returned(&mut self, status: ExitStatus) {
         self.kind = ProcessStatusKind::Returned(status);
     }
-    
+
     pub fn as_dead(&mut self, reason: String) {
         self.kind = ProcessStatusKind::Dead(reason);
     }
-    
+
     pub fn is_ready(&self) -> bool {
         self.kind.is_ready()
     }
-    
+
     pub fn is_finished(&self) -> bool {
         self.kind.is_finished()
     }
-    
+
     pub fn is_err(&self) -> bool {
         self.kind.is_err()
     }
-    
+
     pub fn status(&self) -> ProcessStatusKind {
         self.kind.clone()
     }
