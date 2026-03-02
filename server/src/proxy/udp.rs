@@ -118,7 +118,7 @@ impl UdpProxy {
 
                     if !self.sessions.contains_key(&addr) {
                         let uuid = Uuid::now_v7();
-                let server_port = self.state.service.config().server.port.unwrap_or(DEFAULT_SERVER_UDP_PORT);
+                        let server_port = self.state.service.config().server.port.unwrap_or(DEFAULT_SERVER_UDP_PORT);
                         let server_addr = SocketAddr::new(PEER_IP, server_port);
 
                         let name = Some(format!("udp-{}", addr));
@@ -142,7 +142,7 @@ impl UdpProxy {
                             while let Some(msg) = rx.recv().await {
                                 let bytes = msg.as_bytes();
                                 if let Err(_e) = socket_clone.send_to(bytes, addr).await {
-                                     // quiet error
+                                     info!("[UDP Proxy] Failed to send data downstream to {}: {}, ignoring", addr, _e);
                                 }
                             }
                         });
