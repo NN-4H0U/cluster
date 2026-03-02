@@ -22,7 +22,7 @@ on:
 
 env:
   REGISTRY: registry.cn-beijing.aliyuncs.com
-  IMAGE_NAME: rcss_cluster/match-composer
+  IMAGE_NAME: nn4h0u/match-composer
 
 jobs:
   build-and-push:
