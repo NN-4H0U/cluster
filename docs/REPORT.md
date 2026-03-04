@@ -42,12 +42,12 @@ graph LR
     A --> F[client]
     A --> G[sidecars/match_composer]
 
-    B -->|依赖| C
-    B -->|依赖| E
-    C -->|依赖| D
-    C -->|依赖| E
-    D -->|依赖| E
-    G -->|依赖| E
+    B -->|depends on| C
+    B -->|depends on| E
+    C -->|depends on| D
+    C -->|depends on| E
+    D -->|depends on| E
+    G -->|depends on| E
 ```
 
 ---
@@ -58,21 +58,21 @@ graph LR
 
 ```mermaid
 graph TB
-    subgraph ext["外部"]
-        PC["外部玩家客户端\nUDP / WebSocket"]
-        AC["管理员 / API 调用者\nHTTP REST"]
+    subgraph ext["External"]
+        PC["External Player Clients\nUDP / WebSocket"]
+        AC["Admin / API Caller\nHTTP REST"]
         MC["Match Composer\n:6657 HTTP"]
     end
 
     subgraph srv["server (:55555)"]
-        HTTP["HTTP 路由\n/trainer/* /control/* /gateway"]
-        WSP["WebSocket 代理\n/player/{id}"]
-        UDPP["UDP 代理\n:55555 UDP"]
+        HTTP["HTTP Routes\n/trainer/* /control/* /gateway"]
+        WSP["WebSocket Proxy\n/player/{id}"]
+        UDPP["UDP Proxy\n:55555 UDP"]
         SS["AppState & SessionManager"]
     end
 
     subgraph svc["service"]
-        SVC{"Service\n特性选择"}
+        SVC{"Service\nfeature selection"}
         SA["StandaloneService"]
         AOS["AgonesService"]
         BS["BaseService"]
@@ -80,12 +80,12 @@ graph TB
 
     subgraph proc["process"]
         CP["CoachedProcess"]
-        SP["ServerProcess\nrcssserver 子进程"]
+        SP["ServerProcess\nrcssserver subprocess"]
         OC["OfflineCoach\nUDP :6001"]
     end
 
     subgraph rcss_grp["rcssserver (:6000/:6001/:6002)"]
-        RCSS["rcssserver 进程"]
+        RCSS["rcssserver process"]
     end
 
     subgraph agones_grp["agones"]
@@ -131,28 +131,28 @@ graph LR
     ROOT["Router /"]
 
     ROOT --> TR["/trainer/* POST"]
-    ROOT --> CTRL["/control/* 仅 standalone"]
+    ROOT --> CTRL["/control/* standalone only"]
     ROOT --> GW["/gateway GET TODO"]
     ROOT --> PL["/player/{id} WebSocket"]
     ROOT --> H["fallback 404"]
 
     TR --> TC["change_mode / check_ball\near / eye / init / look\nmove / recover / start / team_names"]
     CTRL --> RS["/control/restart"]
-    PL --> WSP["WS 升级 handle_upgrade"]
+    PL --> WSP["WS upgrade handle_upgrade"]
 ```
 
 ### 3.2 代理架构
 
 ```mermaid
 sequenceDiagram
-    participant C as 客户端
+    participant C as Client
     participant WS as WebSocket Proxy
     participant UDP as UDP Proxy
     participant SM as SessionManager
     participant CL as Client (UDP)
     participant RCSS as rcssserver :6000
 
-    C->>WS: WS 连接 /player/{uuid}
+    C->>WS: WS connect /player/{uuid}
     WS->>SM: get_or_create(uuid, name, server_addr)
     SM-->>WS: Arc<Client>
     WS->>CL: connect()
@@ -160,7 +160,7 @@ sequenceDiagram
     RCSS-->>CL: UDP recv init resp
     CL-->>WS: subscribe → mpsc channel
 
-    loop 消息循环
+    loop message loop
         C->>WS: Text(cmd)
         WS->>CL: send_data(cmd)
         CL->>RCSS: UDP send
@@ -169,21 +169,21 @@ sequenceDiagram
         WS-->>C: Text(resp)
     end
 
-    Note over UDP: 同样使用 SessionManager<br/>支持原生 UDP 客户端
+    Note over UDP: Also uses SessionManager<br/>supports native UDP clients
 ```
 
 ### 3.3 AppState 生命周期
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Running : AppState::new()
+    [*] --> Running : AppState.new()
     Running --> ShuttingDown : shutdown signal
-    ShuttingDown --> Stopped : service.shutdown 成功或 30s 超时
+    ShuttingDown --> Stopped : service.shutdown succeeded or 30s timeout
     Stopped --> [*]
 
     note right of ShuttingDown
-        轮询 Arc::get_mut 等待
-        所有引用释放（1s 间隔）
+        Poll Arc.get_mut waiting for
+        all references to be dropped (1s interval)
     end note
 ```
 
@@ -215,10 +215,10 @@ graph TD
 ```mermaid
 graph LR
     SPAWN[BaseService::spawn]
-    SPAWN --> STP[status_tracing_task\n监听 timestep → 更新 ServerStatus]
-    SPAWN --> KHT[kick_off_half_time_task\n半场自动 Start 命令\n可选]
-    SPAWN --> SLT[stdout_err_logging_task\n进程结束时输出日志\n可选]
-    SPAWN --> AP[AddonProcess\nRunning状态]
+    SPAWN --> STP[status_tracing_task\nlisten timestep → update ServerStatus]
+    SPAWN --> KHT[kick_off_half_time_task\nauto half-time Start command\noptional]
+    SPAWN --> SLT[stdout_err_logging_task\noutput logs on process exit\noptional]
+    SPAWN --> AP[AddonProcess\nRunning state]
 
     STP -->|watch channel| ST[ServerStatus]
     KHT -->|TrainerCommand::Start| OC[OfflineCoach]
@@ -228,13 +228,13 @@ graph LR
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Uninitialized : BaseService 初始化
-    Uninitialized --> Idle : 进程就绪\ntimestep=0
+    [*] --> Uninitialized : BaseService init
+    Uninitialized --> Idle : process ready\ntimestep=0
     Idle --> Simulating : timestep > 0
     Simulating --> Finished : timestep >= 6000
     Idle --> Finished : timestep >= 6000
-    Uninitialized --> Simulating : 进程恢复中\ntimestep > 0
-    Finished --> [*] : status_tracing 退出
+    Uninitialized --> Simulating : process recovering\ntimestep > 0
+    Finished --> [*] : status_tracing exit
 
     note right of Finished
         GAME_END_TIMESTEP = 6000
@@ -253,21 +253,21 @@ sequenceDiagram
     SVC->>BS: spawn(false)
     BS-->>SVC: JoinHandle
     SVC->>SDK: health_check() → mpsc channel
-    SVC->>SDK: ready() ← 告知 Agones 就绪
+    SVC->>SDK: ready() <- notify Agones ready
 
-    loop 健康心跳 (interval)
-        SVC->>SVC: 检查 ServerStatus.is_healthy()
+    loop health heartbeat (interval)
+        SVC->>SVC: check ServerStatus.is_healthy()
         alt healthy
             SVC->>SDK: send health ping
         else unhealthy
-            Note over SVC: 跳过 ping
+            Note over SVC: skip ping
         end
     end
 
     alt on_finish=true
-        SVC->>SVC: 监听 ServerStatus::Finished
+        SVC->>SVC: listen for ServerStatus::Finished
         SVC->>SDK: shutdown()
-        SDK->>K8S: 请求回收 GameServer Pod
+        SDK->>K8S: request GameServer Pod reclaim
     end
 ```
 
@@ -283,10 +283,10 @@ graph TD
 
     P --> CSP[CoachedProcessSpawner]
     P --> CP[CoachedProcess]
-    P --> SP[ServerProcess\n内部 process 模块]
-    P --> OC[OfflineCoach\ntrainer 模块]
-    P --> PL[Player\nplayer 模块]
-    P --> CC[CommandCaller<T>\nclient 模块]
+    P --> SP[ServerProcess\ninternal process module]
+    P --> OC[OfflineCoach\ntrainer module]
+    P --> PL[Player\nplayer module]
+    P --> CC[CommandCaller<T>\nclient module]
 
     CSP -->|spawn| CP
     CP --> SP
@@ -308,8 +308,8 @@ sequenceDiagram
     CSP->>SP: spawner.spawn()
     SP->>RCSS: tokio::process::Command::spawn()
     RCSS-->>SP: PID started
-    SP->>SP: until_ready(2s timeout)\n监听 stdout 就绪信号
-    RCSS-->>SP: 就绪输出
+    SP->>SP: until_ready(2s timeout)\nlisten for stdout ready signal
+    RCSS-->>SP: ready output
     CSP->>OC: coach.build() → connect_and_init()
     OC->>RCSS: UDP "init olcoach ..."
     RCSS-->>OC: UDP "(init olcoach ...)"
@@ -320,8 +320,8 @@ sequenceDiagram
 
 ```mermaid
 graph LR
-    HTTP[HTTP 处理器] -->|TrainerCommand| CC[CommandCaller]
-    CC -->|mpsc send| OC[OfflineCoach 内部循环]
+    HTTP[HTTP Handler] -->|TrainerCommand| CC[CommandCaller]
+    CC -->|mpsc send| OC[OfflineCoach internal loop]
     OC -->|UDP write| RCSS[rcssserver]
     RCSS -->|UDP read| OC
     OC -->|oneshot| CC
@@ -337,18 +337,18 @@ graph LR
 ```mermaid
 graph TD
     C[common crate]
-    C --> CL[client\nUDP 客户端抽象]
-    C --> CMD[command\n命令编解码]
-    C --> UDP[udp\nUDP 连接封装]
-    C --> TP[types\n共享类型]
-    C --> UT[utils\nRingBuf 等工具]
+    C --> CL[client\nUDP client abstraction]
+    C --> CMD[command\ncommand encode/decode]
+    C --> UDP[udp\nUDP connection wrapper]
+    C --> TP[types\nshared types]
+    C --> UT[utils\nRingBuf and other tools]
 
-    CL --> CC[Client 结构体]
+    CL --> CC[Client struct]
     CL --> CF[Config / Builder]
     CL --> CS[Signal / Status]
 
-    CMD --> TR[trainer 命令\n10种]
-    CMD --> PL[player 命令\ninit]
+    CMD --> TR[trainer commands\n10 types]
+    CMD --> PL[player commands\ninit]
 
     TP --> PM[PlayMode]
     TP --> BP[BallPosition]
@@ -361,33 +361,33 @@ graph TD
 
 ```mermaid
 graph TD
-    APP[调用者] -->|send_data| DT[data_tx\nmpsc::Sender]
+    APP[Caller] -->|send_data| DT[data_tx\nmpsc::Sender]
     APP -->|send_signal| ST[signal_tx\nmpsc::Sender]
     APP -->|subscribe| CS[consumers\nDashMap<Uuid, mpsc::Sender>]
 
-    DT --> RUN[run 异步任务]
+    DT --> RUN[run async task]
     ST --> RUN
     RUN --> UDP[UdpConnection]
     UDP <-->|send/recv| RCSS[rcssserver]
     RUN -->|broadcast| CS
-    CS -->|消息推送| SUB1[订阅者 1\n如 WS Proxy]
-    CS -->|消息推送| SUB2[订阅者 2\n如 UDP Proxy]
+    CS -->|message push| SUB1[subscriber 1\ne.g. WS Proxy]
+    CS -->|message push| SUB2[subscriber 2\ne.g. UDP Proxy]
 ```
 
 ### 6.3 Trainer 命令列表
 
 ```mermaid
 graph LR
-    TR[TrainerCommand] --> CM[change_mode\n切换比赛模式]
-    TR --> CB[check_ball\n查询球位置]
-    TR --> EA[ear\n设置监听模式]
-    TR --> EY[eye\n设置视野模式]
-    TR --> IN[init\n初始化 trainer]
-    TR --> LK[look\n查看全场状态]
-    TR --> MV[move\n移动球/球员]
-    TR --> RC[recover\n恢复球员]
-    TR --> ST[start\n开始比赛]
-    TR --> TN[team_names\n设置队名]
+    TR[TrainerCommand] --> CM[change_mode\nchange game mode]
+    TR --> CB[check_ball\nquery ball position]
+    TR --> EA[ear\nset listening mode]
+    TR --> EY[eye\nset vision mode]
+    TR --> IN[init\ninitialize trainer]
+    TR --> LK[look\nview full field state]
+    TR --> MV[move\nmove ball/player]
+    TR --> RC[recover\nrecover player]
+    TR --> ST[start\nstart game]
+    TR --> TN[team_names\nset team names]
 ```
 
 ---
@@ -398,24 +398,24 @@ graph LR
 
 ```mermaid
 graph TD
-    MC[match_composer 进程\n:6657 HTTP]
+    MC[match_composer process\n:6657 HTTP]
 
-    MC --> SCH[Schema v1\nJSON 配置解析]
-    MC --> POL[PolicyRegistry\n镜像策略注册表]
-    MC --> COMP[MatchComposer\n比赛协调器]
+    MC --> SCH[Schema v1\nJSON config parsing]
+    MC --> POL[PolicyRegistry\nimage policy registry]
+    MC --> COMP[MatchComposer\nmatch coordinator]
     MC --> SRV[HTTP Server\naxum]
-    MC --> AGN[Agones SDK\n获取 GameServer 注解]
+    MC --> AGN[Agones SDK\nfetch GameServer annotations]
 
-    SRV --> R1[POST /start\n启动比赛]
-    SRV --> R2[POST /stop\n停止比赛]
-    SRV --> R3[POST /restart\n重启比赛]
-    SRV --> R4[GET /status\n查询状态]
+    SRV --> R1[POST /start\nstart match]
+    SRV --> R2[POST /stop\nstop match]
+    SRV --> R3[POST /restart\nrestart match]
+    SRV --> R4[GET /status\nquery status]
 
-    COMP --> AL[allies Team\n左队]
-    COMP --> OP[opponents Team\n右队]
+    COMP --> AL[allies Team\nleft team]
+    COMP --> OP[opponents Team\nright team]
     COMP --> SPR[server_process\nrcssserver Child]
 
-    AL --> AGP[Agent 进程组]
+    AL --> AGP[Agent process group]
     OP --> AGP
 ```
 
@@ -423,13 +423,13 @@ graph TD
 
 ```mermaid
 graph TD
-    CFG[ConfigV1] --> HOST[host: Ipv4Addr\n默认 127.0.0.1]
-    CFG --> PORT[port: u16\n默认 6000]
+    CFG[ConfigV1] --> HOST[host: Ipv4Addr\ndefault 127.0.0.1]
+    CFG --> PORT[port: u16\ndefault 6000]
     CFG --> TEAMS[teams: TeamsV1]
-    CFG --> REF[referee: 是否启用裁判]
-    CFG --> STOP[stopping: 停止条件\ntime_up/goal_l/goal_r]
-    CFG --> INIT[init_state: 初始球位置]
-    CFG --> ENV[env: HashMap 环境变量]
+    CFG --> REF[referee: enable referee]
+    CFG --> STOP[stopping: stop conditions\ntime_up/goal_l/goal_r]
+    CFG --> INIT[init_state: initial ball position]
+    CFG --> ENV[env: HashMap env vars]
 
     TEAMS --> ALLY[allies: TeamV1]
     TEAMS --> OPP[opponents: TeamV1]
@@ -444,7 +444,7 @@ graph TD
 
 ```mermaid
 sequenceDiagram
-    participant Client as 外部 API 调用
+    participant Client as External API Caller
     participant Srv as HTTP Server
     participant Comp as MatchComposer
     participant Reg as PolicyRegistry
@@ -455,14 +455,14 @@ sequenceDiagram
     Client->>Srv: POST /start
     Srv->>Comp: spawn_players()
     Comp->>AT: spawn(&registry)
-    loop 每位球员
-        AT->>Reg: 查找 policy 对应镜像
+    loop for each player
+        AT->>Reg: lookup image for policy
         Reg-->>AT: Image impl
         AT->>AT: tokio::process::Command::spawn()
     end
     Comp->>OT: spawn(&registry)
-    OT->>OT: 同上
-    Note over AT,OT: 球员进程连接 rcssserver UDP
+    OT->>OT: same as above
+    Note over AT,OT: player processes connect to rcssserver UDP
     Comp-->>Srv: Ok
     Srv-->>Client: 200 OK
 ```
@@ -473,29 +473,29 @@ sequenceDiagram
 
 ```mermaid
 graph TB
-    subgraph k8s_cluster["Kubernetes 集群"]
+    subgraph k8s_cluster["Kubernetes Cluster"]
         subgraph agones_ctrl["Agones"]
-            FLEET["Fleet\nagones-rcss-server\n副本数: 5"]
+            FLEET["Fleet\nagones-rcss-server\nreplicas: 5"]
             GS["GameServer CRD"]
             ALLOC["Agones Allocator"]
             AGONES_CP["Agones Control Plane"]
         end
 
-        subgraph pod_inner["Pod 内部"]
+        subgraph pod_inner["Pod Internal"]
             SERVER["server binary\n:55555 TCP/UDP"]
             SIDECAR["match_composer\n:6657 HTTP"]
             RCSS["rcssserver\n:6000/:6001/:6002"]
             AGONES_SDK["Agones SDK Sidecar\n:9357 gRPC"]
         end
 
-        FLEET -->|管理| GS
-        ALLOC -->|分配 GameServer| GS
+        FLEET -->|manages| GS
+        ALLOC -->|allocate GameServer| GS
     end
 
-    subgraph external["外部"]
-        BOT["Bot Agent 进程\nHelios / SSP"]
-        ADMIN["管理员 HTTP 客户端"]
-        MATCHMGR["Match Manager\n调用 Allocator"]
+    subgraph external["External"]
+        BOT["Bot Agent process\nHelios / SSP"]
+        ADMIN["Admin HTTP Client"]
+        MATCHMGR["Match Manager\ncall Allocator"]
     end
 
     MATCHMGR -->|Allocate| ALLOC
@@ -504,7 +504,7 @@ graph TB
     SERVER <-->|UDP| RCSS
     SIDECAR -->|gRPC| AGONES_SDK
     SERVER -->|gRPC| AGONES_SDK
-    AGONES_SDK <-->|心跳/ready/shutdown| AGONES_CP
+    AGONES_SDK <-->|heartbeat/ready/shutdown| AGONES_CP
 ```
 
 ---
@@ -515,20 +515,20 @@ graph TB
 
 ```mermaid
 graph TB
-    %% ===== 外部层 =====
-    subgraph 外部客户端
-        PC["🎮 玩家客户端\n(UDP / WebSocket)"]
-        ADM["🛠 管理员\n(HTTP REST)"]
+    %% ===== External Layer =====
+    subgraph external_clients["External Clients"]
+        PC["🎮 Player Clients\n(UDP / WebSocket)"]
+        ADM["🛠 Admin\n(HTTP REST)"]
         MATCHMGR["📋 Match Manager\n(Agones Allocator)"]
     end
 
-    %% ===== Server 层 =====
+    %% ===== Server Layer =====
     subgraph server["server crate (:55555)"]
         MAIN["main.rs\nArgs / listen()"]
         APPST["AppState\n{ service, session, status_rx }"]
         SESSMGR["SessionManager\nDashMap<Uuid, Weak<Client>>"]
 
-        subgraph http_routes["HTTP 路由"]
+        subgraph http_routes["HTTP Routes"]
             TR_ROUTE["POST /trainer/*\n(change_mode, start, move...)\n→ TrainerCommand"]
             CTRL_ROUTE["POST /control/restart\n(standalone only)"]
             GW_ROUTE["GET /gateway\n(TODO)"]
@@ -538,21 +538,21 @@ graph TB
         UDP_PROXY["UDP Proxy\n:55555 UDP\nSessionInfo + forward_task"]
     end
 
-    %% ===== Service 层 =====
+    %% ===== Service Layer =====
     subgraph service_layer["service crate (feature flag)"]
         SVC_PICK{"feature:\nstandalone | agones"}
         SS["StandaloneService\n→ spawn / restart"]
         AS["AgonesService\n→ health_check\n→ shutdown_signal\n→ ready"]
         BS["BaseService\n{ config, spawner, process\n  status_tx, cancel_tx }"]
 
-        subgraph bs_tasks["BaseService 后台任务"]
+        subgraph bs_tasks["BaseService Background Tasks"]
             STATUS_TASK["status_tracing_task\ntimestep → ServerStatus"]
-            HALFTIME_TASK["kick_off_half_time_task\n(可选) 自动半场开球"]
-            LOG_TASK["stdout_err_logging_task\n(可选) 进程日志转储"]
+            HALFTIME_TASK["kick_off_half_time_task\n(optional) auto half-time kickoff"]
+            LOG_TASK["stdout_err_logging_task\n(optional) process log dump"]
         end
     end
 
-    %% ===== Process 层 =====
+    %% ===== Process Layer =====
     subgraph process_layer["process crate"]
         CSP["CoachedProcessSpawner\n{ coach_builder, process_spawner }"]
         CP["CoachedProcess\n{ OfflineCoach, ServerProcess }"]
@@ -560,17 +560,17 @@ graph TB
         SP["ServerProcess\ntokio::process::Child\n+ stdout/stderr RingBuf"]
     end
 
-    %% ===== Common 层 =====
+    %% ===== Common Layer =====
     subgraph common_layer["common crate"]
         CL["Client\n{ config, udp, consumers\n  signal_tx, data_tx }"]
         UDP_CONN["UdpConnection"]
         CONSUMERS["consumers\nDashMap<Uuid, mpsc::Sender>"]
-        CMD["Command 编解码\nTrainer (×10) + Player (init)"]
+        CMD["Command encode/decode\nTrainer (×10) + Player (init)"]
         TYPES["Types\nPlayMode / BallPosition\nSide / EyeMode / EarMode"]
     end
 
-    %% ===== rcssserver 进程 =====
-    subgraph rcss["rcssserver 进程"]
+    %% ===== rcssserver Process =====
+    subgraph rcss["rcssserver process"]
         RCSS_PLAYER["player port :6000"]
         RCSS_TRAINER["trainer port :6001"]
         RCSS_COACH["coach port :6002"]
@@ -578,11 +578,11 @@ graph TB
 
     %% ===== Match Composer Sidecar =====
     subgraph mc["sidecars/match_composer (:6657)"]
-        MC_MAIN["main.rs\n读取 Agones 注解 → Config"]
+        MC_MAIN["main.rs\nread Agones annotations → Config"]
         MC_SRV["HTTP Server\nstart / stop / restart / status"]
         MC_COMP["MatchComposer\n{ config, registry\n  allies, opponents }"]
         MC_TEAM["Team\n{ players, agent_conns }"]
-        MC_POL["PolicyRegistry\nimage 目录扫描"]
+        MC_POL["PolicyRegistry\nimage directory scan"]
         MC_IMG["Image impl\nHeliosBase / SSP / Bot"]
         MC_AGN["Agones SDK\ngRPC :9357"]
     end
@@ -594,7 +594,7 @@ graph TB
         GS_OBJ["GameServer CRD\nrooms Counter\nplayers List"]
     end
 
-    %% ===== 连接关系 =====
+    %% ===== Connections =====
     PC -->|"WebSocket"| WS_PROXY
     PC -->|"UDP"| UDP_PROXY
     ADM -->|"HTTP REST"| http_routes
@@ -639,13 +639,13 @@ graph TB
     MC_COMP --> MC_TEAM
     MC_TEAM -->|"Image::player_cmd"| MC_IMG
     MC_POL --> MC_IMG
-    MC_COMP -.->|"Agent 进程 UDP"| RCSS_PLAYER
+    MC_COMP -.->|"Agent process UDP"| RCSS_PLAYER
 
     AGONES --> FLEET
     FLEET --> GS_OBJ
     MC_AGN <-->|"gRPC"| AGONES
 
-    %% ===== 样式 =====
+    %% ===== Styles =====
     classDef external fill:#f9f,stroke:#333
     classDef serverMod fill:#bbf,stroke:#333
     classDef serviceMod fill:#bfb,stroke:#333
