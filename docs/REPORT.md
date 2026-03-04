@@ -58,45 +58,45 @@ graph LR
 
 ```mermaid
 graph TB
-    subgraph 外部
-        PC[外部玩家客户端\nUDP / WebSocket]
-        AC[管理员 / API 调用者\nHTTP REST]
-        MC[Match Composer\n:6657 HTTP]
+    subgraph ext["外部"]
+        PC["外部玩家客户端\nUDP / WebSocket"]
+        AC["管理员 / API 调用者\nHTTP REST"]
+        MC["Match Composer\n:6657 HTTP"]
     end
 
-    subgraph server[:55555]
-        HTTP[HTTP 路由\n/trainer/* /control/* /gateway]
-        WSP[WebSocket 代理\n/player/{id}]
-        UDPP[UDP 代理\n:55555 UDP]
-        SS[AppState\n& SessionManager]
+    subgraph srv["server (:55555)"]
+        HTTP["HTTP 路由\n/trainer/* /control/* /gateway"]
+        WSP["WebSocket 代理\n/player/{id}"]
+        UDPP["UDP 代理\n:55555 UDP"]
+        SS["AppState & SessionManager"]
     end
 
-    subgraph service
-        SVC{Service\n特性选择}
-        SA[StandaloneService]
-        AOS[AgonesService]
-        BS[BaseService]
+    subgraph svc["service"]
+        SVC{"Service\n特性选择"}
+        SA["StandaloneService"]
+        AOS["AgonesService"]
+        BS["BaseService"]
     end
 
-    subgraph process
-        CP[CoachedProcess]
-        SP[ServerProcess\nrcssserver 子进程]
-        OC[OfflineCoach\nUDP :6001]
+    subgraph proc["process"]
+        CP["CoachedProcess"]
+        SP["ServerProcess\nrcssserver 子进程"]
+        OC["OfflineCoach\nUDP :6001"]
     end
 
-    subgraph rcssserver[:6000/:6001/:6002]
-        RCSS[rcssserver 进程]
+    subgraph rcss_grp["rcssserver (:6000/:6001/:6002)"]
+        RCSS["rcssserver 进程"]
     end
 
-    subgraph agones
-        SDK[Agones SDK\ngRPC :9357]
-        K8S[Kubernetes\nFleet / GameServer]
+    subgraph agones_grp["agones"]
+        SDK["Agones SDK\ngRPC :9357"]
+        K8S["Kubernetes\nFleet / GameServer"]
     end
 
     AC -->|REST| HTTP
     PC -->|WebSocket| WSP
     PC -->|UDP| UDPP
-    MC -->|HTTP| server
+    MC -->|HTTP| HTTP
 
     HTTP -->|trainer cmd| SS
     WSP -->|player msg| SS
@@ -116,7 +116,7 @@ graph TB
     WSP -->|UDP via Client| RCSS
     UDPP -->|UDP via Client| RCSS
 
-    AOS -->|health_check\nready\nshutdown| SDK
+    AOS -->|health_check / ready / shutdown| SDK
     SDK --> K8S
 ```
 
@@ -128,17 +128,17 @@ graph TB
 
 ```mermaid
 graph LR
-    ROOT[Router /]
+    ROOT["Router /"]
 
-    ROOT --> TR[/trainer/*\nPOST]
-    ROOT --> CTRL[/control/*\n仅 standalone]
-    ROOT --> GW[/gateway\nGET TODO]
-    ROOT --> PL[/player/{id}\nWebSocket]
-    ROOT --> H[健康检查\nfallback 404]
+    ROOT --> TR["/trainer/* POST"]
+    ROOT --> CTRL["/control/* 仅 standalone"]
+    ROOT --> GW["/gateway GET TODO"]
+    ROOT --> PL["/player/{id} WebSocket"]
+    ROOT --> H["fallback 404"]
 
-    TR --> TC[change_mode\ncheck_ball\near / eye\ninit / look\nmove / recover\nstart / team_names]
-    CTRL --> RS[/control/restart]
-    PL --> WSP[WS 升级\n→ handle_upgrade]
+    TR --> TC["change_mode / check_ball\near / eye / init / look\nmove / recover / start / team_names"]
+    CTRL --> RS["/control/restart"]
+    PL --> WSP["WS 升级 handle_upgrade"]
 ```
 
 ### 3.2 代理架构
@@ -177,12 +177,13 @@ sequenceDiagram
 ```mermaid
 stateDiagram-v2
     [*] --> Running : AppState::new()
-    Running --> ShuttingDown : shutdown signal\n(ctrl-c / graceful)
-    ShuttingDown --> Stopped : service.shutdown() 成功\n或 30s 超时强制关闭
+    Running --> ShuttingDown : shutdown signal
+    ShuttingDown --> Stopped : service.shutdown 成功或 30s 超时
     Stopped --> [*]
 
     note right of ShuttingDown
-        轮询 Arc::get_mut 等待\n所有引用释放（1s 间隔）
+        轮询 Arc::get_mut 等待
+        所有引用释放（1s 间隔）
     end note
 ```
 
@@ -472,29 +473,29 @@ sequenceDiagram
 
 ```mermaid
 graph TB
-    subgraph Kubernetes 集群
-        subgraph Agones
-            FLEET[Fleet\nagones-rcss-server\n副本数: 5]
-            GS[GameServer Pod]
-            ALLOC[Agones Allocator]
+    subgraph k8s_cluster["Kubernetes 集群"]
+        subgraph agones_ctrl["Agones"]
+            FLEET["Fleet\nagones-rcss-server\n副本数: 5"]
+            GS["GameServer CRD"]
+            ALLOC["Agones Allocator"]
+            AGONES_CP["Agones Control Plane"]
         end
 
-        subgraph Pod 内部
-            SERVER[server binary\n:55555 TCP\n:55555 UDP]
-            SIDECAR[match_composer\n:6657 HTTP]
-            RCSS[rcssserver\n:6000 player\n:6001 trainer\n:6002 coach]
-            AGONES_SDK[Agones SDK Server\n:9357 gRPC\n:9358 HTTP]
+        subgraph pod_inner["Pod 内部"]
+            SERVER["server binary\n:55555 TCP/UDP"]
+            SIDECAR["match_composer\n:6657 HTTP"]
+            RCSS["rcssserver\n:6000/:6001/:6002"]
+            AGONES_SDK["Agones SDK Sidecar\n:9357 gRPC"]
         end
 
-        FLEET --> GS
-        GS --> Pod 内部
+        FLEET -->|管理| GS
         ALLOC -->|分配 GameServer| GS
     end
 
-    subgraph 外部
-        BOT[Bot Agent 进程\nHelios / SSP]
-        ADMIN[管理员 HTTP 客户端]
-        MATCHMGR[Match Manager\n调用 Allocator]
+    subgraph external["外部"]
+        BOT["Bot Agent 进程\nHelios / SSP"]
+        ADMIN["管理员 HTTP 客户端"]
+        MATCHMGR["Match Manager\n调用 Allocator"]
     end
 
     MATCHMGR -->|Allocate| ALLOC
@@ -503,9 +504,7 @@ graph TB
     SERVER <-->|UDP| RCSS
     SIDECAR -->|gRPC| AGONES_SDK
     SERVER -->|gRPC| AGONES_SDK
-    AGONES_SDK <-->|心跳/ready/shutdown| Agones
-
-    note1[端口映射\ncontainerPort: 55555 → Dynamic NodePort\ncontainerPort: 6000 → Dynamic NodePort]
+    AGONES_SDK <-->|心跳/ready/shutdown| AGONES_CP
 ```
 
 ---
