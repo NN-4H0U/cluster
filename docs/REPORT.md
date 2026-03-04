@@ -59,7 +59,7 @@ graph LR
 ```mermaid
 graph TB
     subgraph ext["External"]
-        PC["External Player Client\nUDP / WebSocket"]
+PC["External Player Client\nUDP / WebSocket"]
         AC["Admin / API Caller\nHTTP REST"]
         MC["Match Composer\n:6657 HTTP"]
     end
@@ -72,7 +72,7 @@ graph TB
     end
 
     subgraph svc["service"]
-        SVC{"Service\nFeature Selection"}
+SVC{"Service\nFeature Selection"}
         SA["StandaloneService"]
         AOS["AgonesService"]
         BS["BaseService"]
@@ -160,7 +160,7 @@ sequenceDiagram
     RCSS-->>CL: UDP recv init resp
     CL-->>WS: subscribe to mpsc channel
 
-    loop Message Loop
+loop Message Loop
         C->>WS: Text(cmd)
         WS->>CL: send_data(cmd)
         CL->>RCSS: UDP send
@@ -178,7 +178,7 @@ sequenceDiagram
 stateDiagram-v2
     [*] --> Running : AppState.new()
     Running --> ShuttingDown : shutdown signal
-    ShuttingDown --> Stopped : service.shutdown success or 30s timeout
+ShuttingDown --> Stopped : service.shutdown success or 30s timeout
     Stopped --> [*]
 
     note right of ShuttingDown
@@ -215,7 +215,7 @@ graph TD
 ```mermaid
 graph LR
     SPAWN[BaseService::spawn]
-    SPAWN --> STP[status_tracing_task\nlisten timestep, update ServerStatus]
+SPAWN --> STP[status_tracing_task\nlisten timestep, update ServerStatus]
     SPAWN --> KHT[kick_off_half_time_task\nauto half-time Start cmd\noptional]
     SPAWN --> SLT[stdout_err_logging_task\nlog on process exit\noptional]
     SPAWN --> AP[AddonProcess\nRunning state]
@@ -229,7 +229,7 @@ graph LR
 ```mermaid
 stateDiagram-v2
     [*] --> Uninitialized : BaseService init
-    Uninitialized --> Idle : process ready, timestep=0
+Uninitialized --> Idle : process ready, timestep=0
     Idle --> Simulating : timestep > 0
     Simulating --> Finished : timestep >= 6000
     Idle --> Finished : timestep >= 6000
@@ -253,7 +253,7 @@ sequenceDiagram
     SVC->>BS: spawn(false)
     BS-->>SVC: JoinHandle
     SVC->>SDK: health_check() → mpsc channel
-    SVC->>SDK: ready() notify Agones ready
+SVC->>SDK: ready() notify Agones ready
 
     loop Health Heartbeat (interval)
         SVC->>SVC: check ServerStatus.is_healthy()
@@ -265,7 +265,7 @@ sequenceDiagram
     end
 
     alt on_finish=true
-        SVC->>SVC: watch ServerStatus::Finished
+SVC->>SVC: watch ServerStatus::Finished
         SVC->>SDK: shutdown()
         SDK->>K8S: request reclaim GameServer Pod
     end
@@ -308,7 +308,7 @@ sequenceDiagram
     CSP->>SP: spawner.spawn()
     SP->>RCSS: tokio::process::Command::spawn()
     RCSS-->>SP: PID started
-    SP->>SP: until_ready(2s timeout), watch stdout ready
+SP->>SP: until_ready(2s timeout), watch stdout ready
     RCSS-->>SP: ready output
     CSP->>OC: coach.build() → connect_and_init()
     OC->>RCSS: UDP "init olcoach ..."
@@ -338,7 +338,7 @@ graph LR
 graph TD
     C[common crate]
     C --> CL[client\nUDP client abstraction]
-    C --> CMD[command\ncommand codec]
+C --> CMD[command\ncommand codec]
     C --> UDP[udp\nUDP connection wrapper]
     C --> TP[types\nshared types]
     C --> UT[utils\nRingBuf tools]
@@ -347,7 +347,7 @@ graph TD
     CL --> CF[Config / Builder]
     CL --> CS[Signal / Status]
 
-    CMD --> TR[trainer commands\nx10]
+CMD --> TR[trainer commands\nx10]
     CMD --> PL[player command\ninit]
 
     TP --> PM[PlayMode]
@@ -370,7 +370,7 @@ graph TD
     RUN --> UDP[UdpConnection]
     UDP <-->|send/recv| RCSS[rcssserver]
     RUN -->|broadcast| CS
-    CS -->|message push| SUB1[Subscriber 1\ne.g. WS Proxy]
+CS -->|message push| SUB1[Subscriber 1\ne.g. WS Proxy]
     CS -->|message push| SUB2[Subscriber 2\ne.g. UDP Proxy]
 ```
 
@@ -378,7 +378,7 @@ graph TD
 
 ```mermaid
 graph LR
-    TR[TrainerCommand] --> CM[change_mode\nswitch game mode]
+TR[TrainerCommand] --> CM[change_mode\nswitch game mode]
     TR --> CB[check_ball\nquery ball position]
     TR --> EA[ear\nset ear mode]
     TR --> EY[eye\nset eye mode]
@@ -400,7 +400,7 @@ graph LR
 graph TD
     MC[match_composer process\n:6657 HTTP]
 
-    MC --> SCH[Schema v1\nJSON config parser]
+MC --> SCH[Schema v1\nJSON config parser]
     MC --> POL[PolicyRegistry\nimage policy registry]
     MC --> COMP[MatchComposer\nmatch coordinator]
     MC --> SRV[HTTP Server\naxum]
@@ -427,7 +427,7 @@ graph TD
     CFG --> PORT[port: u16\ndefault 6000]
     CFG --> TEAMS[teams: TeamsV1]
     CFG --> REF[referee: enable referee]
-    CFG --> STOP[stopping: stop condition\ntime_up/goal_l/goal_r]
+CFG --> STOP[stopping: stop condition\ntime_up/goal_l/goal_r]
     CFG --> INIT[init_state: initial ball position]
     CFG --> ENV[env: HashMap env vars]
 
@@ -444,7 +444,7 @@ graph TD
 
 ```mermaid
 sequenceDiagram
-    participant Client as External API Call
+participant Client as External API Call
     participant Srv as HTTP Server
     participant Comp as MatchComposer
     participant Reg as PolicyRegistry
@@ -455,7 +455,7 @@ sequenceDiagram
     Client->>Srv: POST /start
     Srv->>Comp: spawn_players()
     Comp->>AT: spawn(&registry)
-    loop per player
+loop per player
         AT->>Reg: lookup image for policy
         Reg-->>AT: Image impl
         AT->>AT: tokio::process::Command::spawn()
@@ -481,7 +481,7 @@ graph TB
             AGONES_CP["Agones Control Plane"]
         end
 
-        subgraph pod_inner["Pod"]
+subgraph pod_inner["Pod"]
             SERVER["server binary\n:55555 TCP/UDP"]
             SIDECAR["match_composer\n:6657 HTTP"]
             RCSS["rcssserver\n:6000/:6001/:6002"]
@@ -495,7 +495,7 @@ graph TB
     subgraph external["External"]
         BOT["Bot Agent process\nHelios / SSP"]
         ADMIN["Admin HTTP Client"]
-        MATCHMGR["Match Manager\nvia Allocator"]
+MATCHMGR["Match Manager\nvia Allocator"]
     end
 
     MATCHMGR -->|Allocate| ALLOC
@@ -516,7 +516,7 @@ graph TB
 ```mermaid
 graph TB
     %% ===== External Layer =====
-    subgraph ext_clients["External Clients"]
+subgraph ext_clients["External Clients"]
         PC["Player Client\n(UDP / WebSocket)"]
         ADM["Admin\n(HTTP REST)"]
         MATCHMGR["Match Manager\n(Agones Allocator)"]
@@ -529,7 +529,7 @@ graph TB
         SESSMGR["SessionManager\nDashMap<Uuid, Weak<Client>>"]
 
         subgraph http_routes["HTTP Routes"]
-            TR_ROUTE["POST /trainer/*\n(change_mode, start, move...)\nTrainerCommand"]
+TR_ROUTE["POST /trainer/*\n(change_mode, start, move...)\nTrainerCommand"]
             CTRL_ROUTE["POST /control/restart\n(standalone only)"]
             GW_ROUTE["GET /gateway\n(TODO)"]
         end
@@ -546,7 +546,7 @@ graph TB
         BS["BaseService\n{ config, spawner, process\n  status_tx, cancel_tx }"]
 
         subgraph bs_tasks["BaseService Background Tasks"]
-            STATUS_TASK["status_tracing_task\ntimestep to ServerStatus"]
+STATUS_TASK["status_tracing_task\ntimestep to ServerStatus"]
             HALFTIME_TASK["kick_off_half_time_task\n(optional) auto half-time kickoff"]
             LOG_TASK["stdout_err_logging_task\n(optional) process log dump"]
         end
@@ -565,7 +565,7 @@ graph TB
         CL["Client\n{ config, udp, consumers\n  signal_tx, data_tx }"]
         UDP_CONN["UdpConnection"]
         CONSUMERS["consumers\nDashMap<Uuid, mpsc::Sender>"]
-        CMD["Command codec\nTrainer (x10) + Player (init)"]
+CMD["Command codec\nTrainer (x10) + Player (init)"]
         TYPES["Types\nPlayMode / BallPosition\nSide / EyeMode / EarMode"]
     end
 
@@ -578,7 +578,7 @@ graph TB
 
     %% ===== Match Composer Sidecar =====
     subgraph mc["sidecars/match_composer (:6657)"]
-        MC_MAIN["main.rs\nread Agones annotations, Config"]
+MC_MAIN["main.rs\nread Agones annotations, Config"]
         MC_SRV["HTTP Server\nstart / stop / restart / status"]
         MC_COMP["MatchComposer\n{ config, registry\n  allies, opponents }"]
         MC_TEAM["Team\n{ players, agent_conns }"]
