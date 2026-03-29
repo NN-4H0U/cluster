@@ -3,7 +3,8 @@ use std::path::PathBuf;
 use serde::Serialize;
 use common::errors::{BuilderError, BuilderResult};
 use common::types::Side;
-use crate::declaration::{HostPort, ImageDeclaration, PlayerBaseDeclaration, PlayerDeclaration, Unum};
+use allocator::declaration::player::PlayerKind as PlayerKindDeclaration;
+use crate::declaration::{HostPort, ImageDeclaration, PlayerDeclaration, Unum};
 
 #[derive(Debug, Clone)]
 pub enum PlayerModel {
@@ -27,6 +28,16 @@ pub enum PlayerKind {
     Helios,
     Ssp,
 }
+
+impl From<PlayerKindDeclaration> for PlayerKind {
+    fn from(kind: PlayerKindDeclaration) -> Self {
+        match kind {
+            PlayerKindDeclaration::Helios => PlayerKind::Helios,
+            PlayerKindDeclaration::Ssp => PlayerKind::Ssp,
+        }
+    }
+}
+
 impl PlayerKind {
     pub fn is_agent(&self) -> bool {
         matches!(self, PlayerKind::Ssp)
@@ -189,7 +200,9 @@ impl PlayerModelBuilder {
         self
     }
 
-    pub fn with_kind(&mut self, kind: PlayerKind) -> &mut Self {
+    pub fn with_kind(&mut self, kind: impl Into<PlayerKind>) -> &mut Self {
+        let kind = kind.into();
+        
         match &kind {
             PlayerKind::Helios => {
                 if let Some(grpc) = &self.grpc {

@@ -3,7 +3,7 @@ mod server;
 pub mod composer;
 pub mod team;
 
-mod agones;
+mod metadata;
 mod player;
 mod model;
 mod args;
@@ -17,7 +17,7 @@ use clap::Parser;
 
 use allocator::declaration;
 
-use crate::agones::AgonesMetaData;
+use crate::metadata::MetaData;
 use crate::composer::MatchComposerConfig;
 use declaration::HostPort;
 
@@ -39,9 +39,9 @@ async fn main() {
         let gs = agones_sdk.get_gameserver().await.unwrap();
 
         let meta = gs.object_meta.unwrap();
-        AgonesMetaData::try_from(meta).unwrap()
+        MetaData::try_from(meta).unwrap()
     } else {
-        serde_json::from_str::<AgonesMetaData>(
+        serde_json::from_str::<MetaData>(
             &std::fs::read_to_string(args.file.unwrap())
                 .expect("Failed to read config file")
         ).expect("Failed to parse ConfigV1 from config file")

@@ -1,37 +1,36 @@
+use std::ops::Deref;
 use std::path::PathBuf;
-
-use serde::{Deserialize, Serialize};
 use agones::ObjectMeta;
 use dashmap::DashMap;
+use serde::{Deserialize, Serialize};
 
-use common::errors::BuilderError;
+use allocator::metadata::MetaData as AllocatorMetadata;
+use allocator::declaration::{HostPort, PlayerDeclaration, TeamDeclaration, Unum};
 use common::types::Side;
 
-use crate::declaration::{HostPort, PlayerDeclaration, TeamDeclaration, Unum};
-use crate::model::team::TeamModel;
 use super::{Declaration, Model};
-use super::labels::Labels;
-use super::annotations::Annotations;
+use crate::model::TeamModel;
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MetaData {
-    pub labels: Labels,
-    pub annotations: Annotations,
+    #[serde(flatten)]
+    meta: AllocatorMetadata,
 }
 
 impl TryFrom<ObjectMeta> for MetaData {
-    type Error = BuilderError;
+    type Error = String;
 
     fn try_from(meta: ObjectMeta) -> Result<Self, Self::Error> {
-        let labels = meta.labels.try_into()?;
-        let annotations = meta.annotations.try_into()?;
+        let meta = AllocatorMetadata::try_from(meta).map_err(|e| e.to_string())?;
+        Ok(Self { meta })
+    }
+}
 
-        let ret = Self {
-            labels,
-            annotations,
-        };
+impl Deref for MetaData {
+    type Target = AllocatorMetadata;
 
-        Ok(ret)
+    fn deref(&self) -> &Self::Target {
+        &self.meta
     }
 }
 
@@ -47,7 +46,7 @@ impl MetaData {
 
 impl<'a> Declaration<'a, MetaData> {
     pub fn team(&self, side: Side) -> TeamDeclaration {
-        Self::parse_team(side, &self.labels, &self.annotations)
+        Self::parse_team(side, self.inner)
     }
 
     pub fn players(&self, side: Side) -> DashMap<Unum, PlayerDeclaration> {
@@ -62,10 +61,10 @@ impl<'a> Declaration<'a, MetaData> {
         (self.team(Side::LEFT), self.team(Side::RIGHT))
     }
 
-    fn parse_team(side: Side, labels: &Labels, annotations: &Annotations) -> TeamDeclaration {
+    fn parse_team(side: Side, meta: &AllocatorMetadata) -> TeamDeclaration {
         let (labels, team_name) = match side {
-            Side::LEFT => (&labels.left, &annotations.team_l),
-            Side::RIGHT => (&labels.right, &annotations.team_r),
+            Side::LEFT => (&meta.labels.left, &meta.annotations.team_l),
+            Side::RIGHT => (&meta.labels.right, &meta.annotations.team_r),
             _ => unreachable!(),
         };
 
@@ -77,8 +76,8 @@ impl<'a> Declaration<'a, MetaData> {
 
         team.build().expect(
             &format!(
-                "Failed to build team for side {:?} with name {}:\n\tlabels={:#?}\n\tannotations={:#?}",
-                side, team_name, labels, annotations
+                "Failed to build team for side {:?} with name {}:\n\tmetadata={:#?}",
+                side, team_name, meta
             )
         )
     }

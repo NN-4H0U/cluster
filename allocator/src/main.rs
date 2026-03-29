@@ -4,13 +4,15 @@ mod args;
 mod schema;
 mod metadata;
 mod controller;
+mod declaration;
 
-use clap::Parser;
+use std::net::SocketAddr;
 use std::sync::Arc;
+use clap::Parser;
 
-use config::Config;
-use controller::allocate::AppState;
 use k8s::K8sClient;
+use args::Args;
+use controller::allocate::AppState;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -18,19 +20,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
 
     // Parse configuration
-    let config = Config::parse();
-    config.validate()?;
+    let args = Args::parse();
+    let addr = SocketAddr::from((args.host, args.http_port));
 
     log::info!("Starting Allocator service");
-    log::info!("Fleet: {}", config.fleet_name);
-    log::info!("Namespace: {}", config.namespace);
-    log::info!("Scheduling: {}", config.scheduling.as_str());
-    log::info!("Bind address: {}", config.bind_address);
-    log::info!(
-        "Bot count range: {} - {}",
-        config.min_bot_count,
-        config.max_bot_count
-    );
+    log::info!("    Fleet: {}", args.fleet_name);
+    log::info!("    Namespace: {}", args.namespace);
+    log::info!("    Scheduling: {}", args.scheduling.as_str());
+    log::info!("    Bind address: {}", addr);
+
 
     // Initialize Kubernetes client
     log::info!("Initializing Kubernetes client");
@@ -38,7 +36,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create app state
     let state = AppState {
-        config: Arc::new(config.clone()),
+        config: Arc::new(args.clone()),
         k8s_client,
     };
 
@@ -46,8 +44,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = controller::create_router(state);
 
     // Start server
-    let listener = tokio::net::TcpListener::bind(&config.bind_address).await?;
-    log::info!("Listening on {}", config.bind_address);
+    let listener = tokio::net::TcpListener::bind(&addr).await?;
+    log::info!("Listening on {}", addr);
 
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
@@ -66,7 +64,8 @@ async fn shutdown_signal() {
 
     #[cfg(unix)]
     let terminate = async {
-        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+        use tokio::signal::unix;
+        unix::signal(unix::SignalKind::terminate())
             .expect("failed to install signal handler")
             .recv()
             .await;

@@ -21,6 +21,14 @@ impl Deref for Unum {
     }
 }
 
+impl TryFrom<u8> for Unum {
+    type Error = BuilderError;
+
+    fn try_from(value: u8) -> BuilderResult<Self> {
+        Self::new(value)
+    }
+}
+
 impl Unum {
     pub fn new(unum: u8) -> BuilderResult<Self> {
         if unum  > 11 {

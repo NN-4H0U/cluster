@@ -43,7 +43,7 @@ impl Schema for ConfigV1 {
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct RefereeV1 {
-    enable: bool
+    pub enable: bool
 }
 
 impl Default for RefereeV1 {
@@ -62,9 +62,9 @@ impl Schema for RefereeV1 {
 
 #[derive(Deserialize, Serialize, Default, Clone, Debug)]
 pub struct StoppingEventV1 {
-    time_up: Option<u16>,
-    goal_l: Option<u8>,
-    goal_r: Option<u8>,
+    pub time_up: Option<u16>,
+    pub goal_l: Option<u8>,
+    pub goal_r: Option<u8>,
 }
 
 impl Schema for StoppingEventV1 {
@@ -75,7 +75,7 @@ impl Schema for StoppingEventV1 {
 
 #[derive(Deserialize, Serialize, Default, Clone, Debug)]
 pub struct GlobalInitStateV1 {
-    ball: Option<Position>
+    pub ball: Option<Position>
 }
 
 impl Schema for GlobalInitStateV1 {

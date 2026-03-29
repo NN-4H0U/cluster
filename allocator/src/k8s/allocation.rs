@@ -1,12 +1,16 @@
+use std::fmt::Debug;
+use std::collections::HashMap;
+
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
 use kube::{
     api::{Api, PostParams},
     Client,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
+use crate::metadata::MetaData;
 use crate::controller::{error::Error, response::AllocateResponse};
+
 
 // GameServerAllocation CRD structures
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -102,18 +106,25 @@ pub async fn create_allocation(
     namespace: &str,
     fleet_name: &str,
     scheduling: &str,
-    annotations: HashMap<String, String>,
+    metadata: impl TryInto<MetaData, Error: Debug>,
 ) -> Result<AllocateResponse, Error> {
     let api: Api<GameServerAllocation> = Api::namespaced(client.clone(), namespace);
-
+    
+    let metadata = metadata.try_into()
+        .map_err(|e| Error::Validation(format!("{e:?}")))?;
+    
     // Build allocation metadata with annotations
     let allocation_metadata = AllocationMetadata {
-        annotations: Some(annotations),
+        annotations: Some(metadata.annotations.into_map()),
     };
 
     // Build selector to match fleet
-    let match_labels = HashMap::from([("agones.dev/fleet".to_string(), fleet_name.to_string())]);
-
+    let match_labels = {
+        let mut labels = metadata.labels.into_map();
+        labels.insert("agones.dev/fleet".to_string(), fleet_name.to_string());
+        labels
+    };
+    
     let selector = GameServerSelector {
         match_labels: Some(match_labels),
         match_expressions: None,

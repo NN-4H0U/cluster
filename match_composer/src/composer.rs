@@ -8,7 +8,7 @@ use tokio::sync::{watch, RwLock};
 use common::types::Side;
 
 use crate::team::{self, Team, TeamStatus};
-use crate::agones::AgonesMetaData;
+use crate::metadata::MetaData;
 use crate::policy::PolicyRegistry;
 use crate::declaration::HostPort;
 use crate::info::game::GameStatusInfo;
@@ -24,7 +24,7 @@ pub struct MatchComposerConfig {
 pub struct MatchComposer {
     pub config: MatchComposerConfig,
 
-    match_meta: OnceLock<RwLock<Arc<AgonesMetaData>>>,
+    match_meta: OnceLock<RwLock<Arc<MetaData>>>,
 
     registry: PolicyRegistry,
 }
@@ -46,11 +46,11 @@ impl MatchComposer {
         self.match_meta.get().is_some()
     }
 
-    fn match_data_unchecked(&self) -> &RwLock<Arc<AgonesMetaData>> {
+    fn match_data_unchecked(&self) -> &RwLock<Arc<MetaData>> {
         self.match_meta.get().unwrap()
     }
 
-    pub async fn set_meta(&self, meta: AgonesMetaData) {
+    pub async fn set_meta(&self, meta: MetaData) {
         let meta = Arc::new(meta);
         let lock = self.match_meta.get_or_init(|| RwLock::new(meta.clone()));
         *lock.write().await = meta;
@@ -82,7 +82,7 @@ impl MatchComposer {
 
 pub struct Match {
     pub rcsss: HostPort,
-    pub config: Arc<AgonesMetaData>,
+    pub config: Arc<MetaData>,
     pub team_l: Team,
     pub team_r: Team,
     pub status: watch::Receiver<GameStatusInfo>,
@@ -93,7 +93,7 @@ pub struct Match {
 impl Match {
     pub fn new(
         rcsss: HostPort,
-        config: Arc<AgonesMetaData>,
+        config: Arc<MetaData>,
         team_l: Team,
         team_r: Team,
     ) -> Self {

@@ -12,7 +12,7 @@ use tokio::sync::{oneshot, RwLock};
 use tokio::task::JoinHandle;
 use common::types::Side;
 pub use error::{Error, Result};
-use crate::agones::AgonesMetaData;
+use crate::metadata::MetaData;
 use crate::composer::{Match, MatchComposer, MatchComposerConfig};
 use crate::info::{GameInfo, TeamInfo};
 use crate::team::{TeamStatus};
@@ -105,7 +105,7 @@ impl AppState {
 
 
     /// Start composer from a `ConfigV1`. Returns error if already running.
-    pub async fn start(&self, meta: Option<AgonesMetaData>) -> Result<()> {
+    pub async fn start(&self, meta: Option<MetaData>) -> Result<()> {
         let mut guard = self.game.write().await;
         
         if guard.is_some() {
@@ -134,7 +134,7 @@ impl AppState {
     }
 
     /// Stop (if running) then start with new meta.
-    pub async fn restart(&self, meta: Option<AgonesMetaData>) -> Result<()> {
+    pub async fn restart(&self, meta: Option<MetaData>) -> Result<()> {
         let mut guard = self.game.write().await;
 
         if let Some(game) = guard.as_mut() {
@@ -186,7 +186,7 @@ impl AppState {
         Ok(())
     }
     
-    async fn update_meta(&self, meta: Option<AgonesMetaData>) {
+    async fn update_meta(&self, meta: Option<MetaData>) {
         if let Some(meta) = meta {
             info!("[AppState] Composer meta updating, meta: {meta:?}");
             self.composer.set_meta(meta).await;
@@ -198,7 +198,7 @@ fn router(state: AppState) -> Router {
     routes::route("/", state)
 }
 
-pub async fn listen(addr: SocketAddr, meta: AgonesMetaData, config: MatchComposerConfig) -> Result<JoinHandle<()>> {
+pub async fn listen(addr: SocketAddr, meta: MetaData, config: MatchComposerConfig) -> Result<JoinHandle<()>> {
     let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
     let state = AppState::new(config, Some(shutdown_rx))?;
     

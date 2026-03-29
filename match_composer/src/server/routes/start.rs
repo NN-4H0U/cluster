@@ -1,13 +1,13 @@
 use axum::extract::State;
 use axum::{Json, Router, routing};
 use serde::{Deserialize, Serialize};
-use crate::agones::AgonesMetaData;
+use crate::metadata::MetaData;
 use super::{AppState, Error};
 
 #[derive(Deserialize)]
 pub struct StartRequest {
     #[serde(flatten)]
-    pub config: Option<AgonesMetaData>,
+    pub config: Option<MetaData>,
 }
 
 #[derive(Serialize)]

@@ -1,15 +1,10 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use crate::schema::v1;
 
 #[derive(Debug, Deserialize)]
 pub struct AllocateRequest {
-    pub bot_count: u32,
-    #[serde(default)]
-    pub difficulty: Option<String>,
-    #[serde(default)]
-    pub env_params: Option<HashMap<String, serde_json::Value>>,
-    #[serde(default)]
-    pub client_version: Option<String>,
+    #[serde(flatten)]
+    pub schema: v1::ConfigV1,
 }
 
 #[derive(Debug, Serialize)]
