@@ -5,7 +5,6 @@ pub mod team;
 
 mod agones;
 mod player;
-mod declarations;
 mod model;
 mod args;
 pub mod info;
@@ -15,9 +14,12 @@ use std::net::{Ipv4Addr, SocketAddr};
 use std::path::PathBuf;
 use std::time::Duration;
 use clap::Parser;
+
+use allocator::declaration;
+
 use crate::agones::AgonesMetaData;
 use crate::composer::MatchComposerConfig;
-use crate::declarations::HostPort;
+use declaration::HostPort;
 
 #[tokio::main]
 async fn main() {

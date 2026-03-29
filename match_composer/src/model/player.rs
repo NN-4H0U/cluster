@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use serde::Serialize;
 use common::errors::{BuilderError, BuilderResult};
 use common::types::Side;
-use crate::declarations::{HostPort, ImageDeclaration, PlayerBaseDeclaration, PlayerDeclaration, Unum};
+use crate::declaration::{HostPort, ImageDeclaration, PlayerBaseDeclaration, PlayerDeclaration, Unum};
 
 #[derive(Debug, Clone)]
 pub enum PlayerModel {

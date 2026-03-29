@@ -6,7 +6,7 @@ use dashmap::{DashMap, DashSet};
 use crate::model::TeamModel;
 use crate::player::{Player, PolicyPlayer};
 use crate::policy::PolicyRegistry;
-use crate::declarations::{ImageDeclaration, Unum};
+use crate::declaration::{ImageDeclaration, Unum};
 use crate::info::{PlayerInfo, TeamInfo};
 pub use crate::info::TeamStatusInfo as TeamStatus;
 

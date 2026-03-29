@@ -2,7 +2,7 @@ use common::types::Side;
 
 use dashmap::DashMap;
 use common::errors::{BuilderError, BuilderResult};
-use crate::declarations::Unum;
+use crate::declaration::Unum;
 use super::player::Player;
 
 #[derive(Clone, Debug)]

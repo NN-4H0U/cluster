@@ -7,7 +7,7 @@ use dashmap::DashMap;
 use common::errors::BuilderError;
 use common::types::Side;
 
-use crate::declarations::{HostPort, PlayerDeclaration, TeamDeclaration, Unum};
+use crate::declaration::{HostPort, PlayerDeclaration, TeamDeclaration, Unum};
 use crate::model::team::TeamModel;
 use super::{Declaration, Model};
 use super::labels::Labels;

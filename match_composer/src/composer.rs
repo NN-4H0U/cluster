@@ -10,7 +10,7 @@ use common::types::Side;
 use crate::team::{self, Team, TeamStatus};
 use crate::agones::AgonesMetaData;
 use crate::policy::PolicyRegistry;
-use crate::declarations::HostPort;
+use crate::declaration::HostPort;
 use crate::info::game::GameStatusInfo;
 use crate::info::GameInfo;
 

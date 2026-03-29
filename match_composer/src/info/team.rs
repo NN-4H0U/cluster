@@ -5,7 +5,7 @@ use serde::Serialize;
 
 use common::types::Side;
 
-use crate::declarations::Unum;
+use crate::declaration::Unum;
 use crate::team::{Error as TeamError, Result as TeamResult};
 use super::player::PlayerInfo;
 

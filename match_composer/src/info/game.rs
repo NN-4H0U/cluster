@@ -1,7 +1,7 @@
 use serde::Serialize;
 use chrono::{DateTime, Utc};
 
-use crate::declarations::HostPort;
+use crate::declaration::HostPort;
 use super::team::TeamInfo;
 
 #[derive(Serialize, Debug, Clone)]

@@ -8,7 +8,7 @@ use common::errors::{BuilderError, BuilderResult};
 use common::types::Side;
 
 use crate::model::player::PlayerModel;
-use crate::declarations::{HostPort, TeamDeclaration, Unum};
+use crate::declaration::{HostPort, TeamDeclaration, Unum};
 
 
 #[derive(Debug, Clone)]

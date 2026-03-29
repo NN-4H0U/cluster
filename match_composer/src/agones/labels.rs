@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use common::errors::BuilderError;
 use common::types::Side;
 
-use crate::declarations::PlayerDeclaration;
+use crate::declaration::PlayerDeclaration;
 
 
 #[derive(Deserialize, Serialize, Debug, Clone)]

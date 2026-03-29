@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 use common::errors::BuilderError;
-use crate::declarations::{
+use crate::declaration::{
     InitStateDeclaration,
     RefereeDeclaration,
     StopEventDeclaration
@@ -32,6 +32,21 @@ impl Annotations {
         let team_l = map.remove("team.l").unwrap_or("TeamLeft".to_string());
         let team_r = map.remove("team.r").unwrap_or("TeamRight".to_string());
         Annotations { referee, stopping, init, team_l, team_r }
+    }
+    pub fn into_map(self) -> HashMap<String, String> {
+        let mut map = HashMap::new();
+        map.insert("team.l".to_string(), self.team_l);
+        map.insert("team.r".to_string(), self.team_r);
+        if let Ok(referee_str) = serde_json::to_string(&self.referee) {
+            map.insert("referee".to_string(), referee_str);
+        }
+        if let Ok(stopping_str) = serde_json::to_string(&self.stopping) {
+            map.insert("stopping".to_string(), stopping_str);
+        }
+        if let Ok(init_str) = serde_json::to_string(&self.init) {
+            map.insert("init".to_string(), init_str);
+        }
+        map
     }
 }
 

@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use tokio::process::Command;
 use crate::model::ImageInfo;
-use crate::declarations::ImageDeclaration;
+use crate::declaration::ImageDeclaration;
 
 pub trait PolicyImage: Send + Sync {
     fn image(&self) -> &ImageInfo;

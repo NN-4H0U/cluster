@@ -9,7 +9,7 @@ agones.workspace = true
 tokio.workspace = true
 futures.workspace = true
 axum.workspace = true
-dashmap = "6"
+dashmap.workspace = true
 
 log.workspace = true
 clap.workspace = true
@@ -19,5 +19,7 @@ serde_json.workspace = true
 chrono.workspace = true
 thiserror.workspace = true
 
-common = { path = "../common" }
 async-trait = "0.1.89"
+
+common = { path = "../common" }
+allocator = { path = "../allocator" }

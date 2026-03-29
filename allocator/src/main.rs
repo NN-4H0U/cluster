@@ -1,7 +1,9 @@
-mod auth;
-mod config;
-mod controller;
 mod k8s;
+mod auth;
+mod args;
+mod schema;
+mod metadata;
+mod controller;
 
 use clap::Parser;
 use std::sync::Arc;

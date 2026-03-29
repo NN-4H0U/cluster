@@ -1,7 +1,7 @@
 use serde::Serialize;
 
 use crate::model::{PlayerKind};
-use crate::declarations::{ImageDeclaration, Unum};
+use crate::declaration::{ImageDeclaration, Unum};
 
 #[derive(Serialize, Debug, Clone)]
 pub struct PlayerInfo {

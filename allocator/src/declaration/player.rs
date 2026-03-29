@@ -1,7 +1,6 @@
 use super::unum::Unum;
 use super::image::Image;
 use super::host_port::HostPort;
-use crate::model::{PlayerKind};
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 
@@ -17,6 +16,14 @@ pub struct PlayerBase {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+pub enum PlayerKind {
+    Helios,
+    Ssp,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(tag = "kind", rename_all = "lowercase")]
 pub enum Player {
     Helios {
         #[serde(flatten)]
