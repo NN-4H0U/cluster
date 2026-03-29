@@ -1,24 +1,21 @@
 mod error;
-mod response;
 mod routes;
 
 use std::net::SocketAddr;
-use std::path::PathBuf;
 use std::sync::Arc;
-
-use axum::Json;
 use axum::Router;
 use chrono::{Duration, Utc};
 use log::{debug, error, info};
 use tokio::net::TcpListener;
-use tokio::sync::{oneshot, Mutex, RwLock};
+use tokio::signal::unix::{signal, SignalKind};
+use tokio::sync::{oneshot, RwLock};
+use tokio::task::JoinHandle;
 use common::types::Side;
-pub use error::Error;
-pub use response::StatusResponse;
-
-use crate::composer::MatchComposer;
-use crate::config::MatchComposerConfig;
-use crate::schema::v1::ConfigV1;
+pub use error::{Error, Result};
+use crate::agones::AgonesMetaData;
+use crate::composer::{Match, MatchComposer, MatchComposerConfig};
+use crate::info::{GameInfo, TeamInfo};
+use crate::team::{TeamStatus};
 
 enum ComposerState {
     Idle,
@@ -28,12 +25,19 @@ enum ComposerState {
     },
 }
 
+impl ComposerState {
+    pub fn kind(&self) -> &'static str {
+        match self {
+            ComposerState::Idle => "idle",
+            ComposerState::Running { .. } => "running",
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct AppState {
-    inner: Arc<Mutex<ComposerState>>,
-    cfg: Arc<RwLock<Option<ConfigV1>>>,
-    hub_path: Arc<PathBuf>,
-    log_root: Arc<PathBuf>,
+    composer: Arc<MatchComposer>,
+    game: Arc<RwLock<Option<Match>>>,
 }
 
 impl AppState {
@@ -41,26 +45,28 @@ impl AppState {
     const CLEANER_TIMEOUT: Duration = Duration::seconds(30);
 
     pub fn new(
-        hub_path: PathBuf,
-        log_root: PathBuf,
+        composer_config: MatchComposerConfig,
         shutdown_notifier: Option<oneshot::Receiver<()>>,
-    ) -> Self {
-        let inner = Arc::new(Mutex::new(ComposerState::Idle));
+    ) -> Result<Self> {
+        let composer = MatchComposer::new(composer_config)
+            .map_err(|e| Error::internal(e.to_string()))?;
 
+        let composer = Arc::new(composer);
+        let game = Arc::new(RwLock::new(None));
         if let Some(notifier) = shutdown_notifier {
-            tokio::spawn(Self::run_shutdown_cleaner(inner.clone(), notifier));
+            tokio::spawn(Self::run_shutdown_cleaner(game.clone(), notifier));
         }
 
-        Self {
-            inner,
-            cfg: Arc::new(RwLock::new(None)),
-            hub_path: Arc::new(hub_path),
-            log_root: Arc::new(log_root),
-        }
+        Ok(
+            Self {
+                composer,
+                game,
+            }
+        )
     }
 
     async fn run_shutdown_cleaner(
-        inner: Arc<Mutex<ComposerState>>,
+        game: Arc<RwLock<Option<Match>>>,
         notifier: oneshot::Receiver<()>,
     ) {
         notifier.await.ok();
@@ -74,17 +80,16 @@ impl AppState {
         loop {
             interval.tick().await;
 
-            if let Ok(mut guard) = inner.try_lock() {
-                if let ComposerState::Running { composer, .. } = &mut *guard {
-                    composer.shutdown().await;
+            if  let Ok(mut guard) = game.try_write() &&
+                let Some(game) = guard.as_mut() {
+                    if let Err(e) = game.shutdown().await {
+                        error!("[AppState] Error during composer shutdown: {e}");
+                    }
                     info!(
                         "[AppState] Composer shutdown completed in {}ms.",
                         (Utc::now() - start_at).num_milliseconds()
                     );
-                } else {
-                    debug!("[AppState] Composer was already idle at shutdown.");
-                }
-                *guard = ComposerState::Idle;
+                    *guard = None;
                 break;
             }
 
@@ -98,121 +103,110 @@ impl AppState {
         }
     }
 
-    /// Start composer from a `ConfigV1`. Returns error if already running.
-    pub async fn start(&self, config: Option<ConfigV1>) -> Result<(), Error> {
-        let config = self.build_config(config).await?;
 
-        let mut guard = self.inner.lock().await;
-        if matches!(*guard, ComposerState::Running { .. }) {
+    /// Start composer from a `ConfigV1`. Returns error if already running.
+    pub async fn start(&self, meta: Option<AgonesMetaData>) -> Result<()> {
+        let mut guard = self.game.write().await;
+        
+        if guard.is_some() {
             return Err(Error::conflict(
                 "Composer is already running. Call /stop or /restart first.",
             ));
         }
-
-        self.do_start(config, &mut guard).await
+        
+        self.update_meta(meta).await;
+        self.do_start(&mut guard).await
     }
 
     /// Stop the running composer. Returns error if already idle.
-    pub async fn stop(&self) -> Result<(), Error> {
-        let mut guard = self.inner.lock().await;
-        match &mut *guard {
-            ComposerState::Idle => Err(Error::bad_request("Composer is not running.")),
-            ComposerState::Running { composer, .. } => {
-                composer.shutdown().await;
-                *guard = ComposerState::Idle;
-                Ok(())
+    pub async fn stop(&self) -> Result<()> {
+        let mut guard = self.game.write().await;
+        if let Some(game) = guard.as_mut() {
+            if let Err(e) = game.shutdown().await {
+                error!("[AppState] Error during composer shutdown: {e}");
+                return Err(Error::internal(format!("Failed to shutdown running composer: {e}")));
             }
+            *guard = None;
+            Ok(())
+        } else {
+            Err(Error::bad_request("Composer is not running."))
         }
     }
 
-    /// Stop (if running) then start with new config.
-    pub async fn restart(&self, config: Option<ConfigV1>) -> Result<(), Error> {
-        let config = self.build_config(config).await?;
+    /// Stop (if running) then start with new meta.
+    pub async fn restart(&self, meta: Option<AgonesMetaData>) -> Result<()> {
+        let mut guard = self.game.write().await;
 
-        let mut guard = self.inner.lock().await;
-        if let ComposerState::Running { composer, .. } = &mut *guard {
-            composer.shutdown().await;
+        if let Some(game) = guard.as_mut() {
+            if let Err(e) = game.shutdown().await {
+                error!("[AppState] Error during composer shutdown: {e}");
+                return Err(Error::internal(format!("Failed to shutdown running composer: {e}")));
+            }
+            *guard = None;
         }
-        *guard = ComposerState::Idle;
-        self.do_start(config, &mut guard).await
+        
+        self.update_meta(meta).await;
+        self.do_start(&mut guard).await
     }
 
-    /// Return current state and agent connections.
-    pub async fn status(&self) -> Json<StatusResponse> {
-        let guard = self.inner.lock().await;
-        match &*guard {
-            ComposerState::Idle => Json(
-                StatusResponse {
-                    state: "idle",
-                    team_l: None,
-                    team_r: None,
-                    started_at: None
-                }
-            ),
-            ComposerState::Running { composer, started_at } => {
-                let left = composer.team(Side::LEFT);
-                let right = composer.team(Side::RIGHT);
-                Json(
-                    StatusResponse {
-                        state: "running",
-                        team_l: Some(left),
-                        team_r: Some(right),
-                        started_at: Some(*started_at),
-                    }
-                )
-            }
-        }
+    pub async fn team_status(&self, side: Side) -> Option<TeamStatus> {
+        self.game.read().await
+            .as_ref()
+            .map(|game| {
+                game.team(side).status_now()
+            })
     }
-
-    async fn build_config(&self, config: Option<ConfigV1>) -> Result<ConfigV1, Error> {
-        match config {
-            Some(cfg) => Ok(cfg),
-            _ => {
-                self.cfg.read().await.clone().ok_or_else(
-                    || Error::bad_request("No config provided and no previous config found.")
-                )
-            }
-        }
+    
+    pub async fn team_info(&self, side: Side) -> Option<TeamInfo> {
+        self.game.read().await
+            .as_ref()
+            .map(|game| {
+                game.team(side).info()
+            })
+    }
+    
+    pub async fn match_info(&self) -> Option<GameInfo> {
+        self.game.read().await
+            .as_ref()
+            .map(|game| game.info())
     }
 
     async fn do_start(
         &self,
-        config: ConfigV1,
-        state: &mut ComposerState,
-    ) -> Result<(), Error> {
+        game: &mut Option<Match>,
+    ) -> Result<()> {
         let started_at = Utc::now();
-        let log_root = self.log_root.join(started_at.format("%Y%m%d_%H%M%S").to_string());
-
-        let composer_config =
-            MatchComposerConfig::from_schema(config.clone(), Some(log_root))
-                .map_err(|e| Error::bad_request(format!("Invalid config: {e}")))?;
-
-        let mut composer = MatchComposer::new(composer_config, self.hub_path.as_ref())
-            .map_err(|e| Error::internal(format!("Failed to create composer: {e}")))?;
-
-        composer
-            .spawn_players()
-            .await
+        let log_root = started_at.format("%Y%m%d_%H%M%S").to_string();
+        
+        let new_game = self.composer
+            .make_match(log_root).await
             .map_err(|e| Error::internal(format!("Failed to spawn players: {e}")))?;
 
-        *state = ComposerState::Running { composer, started_at };
-        *self.cfg.write().await = Some(config);
+        *game = Some(new_game);
         Ok(())
+    }
+    
+    async fn update_meta(&self, meta: Option<AgonesMetaData>) {
+        if let Some(meta) = meta {
+            info!("[AppState] Composer meta updating, meta: {meta:?}");
+            self.composer.set_meta(meta).await;
+        }
     }
 }
 
 fn router(state: AppState) -> Router {
-    routes::route().with_state(state)
+    routes::route("/", state)
 }
 
-pub async fn listen(addr: SocketAddr, config: ConfigV1, hub_path: PathBuf, log_root: PathBuf) {
+pub async fn listen(addr: SocketAddr, meta: AgonesMetaData, config: MatchComposerConfig) -> Result<JoinHandle<()>> {
     let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
-    let state = AppState::new(hub_path, log_root, Some(shutdown_rx));
+    let state = AppState::new(config, Some(shutdown_rx))?;
     
-    let _state = state.clone();
-    tokio::spawn(async move {
-        _state.start(Some(config)).await
-    });
+    state.update_meta(Some(meta)).await;
+    // let _state = state.clone();
+    // tokio::spawn(async move {
+    //     _state.start(Some(meta)).await
+    // });
     
     let app = router(state);
 
@@ -231,7 +225,7 @@ pub async fn listen(addr: SocketAddr, config: ConfigV1, hub_path: PathBuf, log_r
 
         #[cfg(unix)]
         let terminate = async {
-            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            signal(SignalKind::terminate())
                 .expect("Failed to install SIGTERM handler")
                 .recv()
                 .await;
@@ -249,10 +243,13 @@ pub async fn listen(addr: SocketAddr, config: ConfigV1, hub_path: PathBuf, log_r
         debug!("[Server] Shutdown signal sent to AppState cleaner.");
     };
 
-    axum::serve(listener, app)
-        .with_graceful_shutdown(signal)
-        .await
-        .expect("Server error");
+    let server = tokio::spawn(async move {
+        axum::serve(listener, app)
+            .with_graceful_shutdown(signal)
+            .await
+            .expect("Server error");
+    });
 
     info!("Server shut down.");
+    Ok(server)
 }

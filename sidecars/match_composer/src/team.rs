@@ -1,34 +1,17 @@
-use crate::config::{ImageQuery, PlayerConfig, TeamConfig};
-use crate::player::{Player, PlayerMeta, PolicyMeta, PolicyPlayer};
-use crate::policy::PolicyRegistry;
-use common::types::Side;
-use dashmap::{DashMap, DashSet};
-use serde::Serialize;
 use std::ops::{Deref, DerefMut};
 use std::time::Duration;
+
 use tokio::sync::watch;
+use dashmap::{DashMap, DashSet};
+use crate::model::TeamModel;
+use crate::player::{Player, PolicyPlayer};
+use crate::policy::PolicyRegistry;
+use crate::declarations::{ImageDeclaration, Unum};
+use crate::info::{PlayerInfo, TeamInfo};
+pub use crate::info::TeamStatusInfo as TeamStatus;
 
-#[derive(Serialize, Clone, Debug)]
-pub struct TeamMeta {
-    pub name: String,
-    pub side: Side,
-    pub policies: Vec<PolicyMeta>,
-}
+pub const SPAWN_DURATION: Duration = Duration::from_millis(100);
 
-#[derive(Debug, Clone)]
-pub enum TeamStatus {
-    Idle,
-    Starting,
-    Running,
-    ShuttingDown,
-    Error(Error),
-}
-
-impl TeamStatus {
-    pub fn is_finished(&self) -> bool {
-        matches!(self, TeamStatus::Idle | TeamStatus::Error(_))
-    }
-}
 
 #[derive(Debug)]
 pub struct PlayerWrap(Box<dyn Player>);
@@ -51,18 +34,29 @@ impl DerefMut for PlayerWrap {
     }
 }
 
+impl PlayerWrap {
+    pub fn info(&self) -> PlayerInfo {
+        let model = self.model();
+        PlayerInfo {
+            unum: model.unum,
+            kind: model.kind,
+            image: model.image.clone(),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Team {
-    pub config: TeamConfig,
+    pub config: TeamModel,
 
     status_tx: watch::Sender<TeamStatus>,
     status_rx: watch::Receiver<TeamStatus>,
-    players: DashMap<u8, PlayerWrap>,
-    agents: DashSet<u8>,
+    players: DashMap<Unum, PlayerWrap>,
+    agents: DashSet<Unum>,
 }
 
 impl Team {
-    pub fn new(config: TeamConfig) -> Self {
+    pub fn new(config: TeamModel) -> Self {
         let (status_tx, status_rx) = watch::channel(TeamStatus::Idle);
         Self {
             config,
@@ -72,14 +66,9 @@ impl Team {
             agents: DashSet::new(),
         }
     }
-    
-    pub fn meta(&self) -> TeamMeta {
-        let policies = self.policies();
-        TeamMeta {
-            side: self.config.side,
-            name: self.config.name.clone(),
-            policies,
-        }
+
+    pub fn status_now(&self) -> TeamStatus {
+        self.status_rx.borrow().clone()
     }
 
     pub fn status_watch(&self) -> watch::Receiver<TeamStatus> {
@@ -96,26 +85,21 @@ impl Team {
         self.status_tx.send(TeamStatus::Starting)
             .map_err(|_| Error::ChannelClosed { ch_name: "TeamStatus" })?;
 
-        let mut players = self.config.players.clone();
+        let mut players = self.config.players().clone()
+            .into_iter().map(|(_, p)| p).collect::<Vec<_>>();
 
-        players.sort_by_key(|p| p.unum());
+        players.sort_by_key(|p| p.unum);
 
+        let mut interval = tokio::time::interval(SPAWN_DURATION);
         for player in players {
-            let unum = player.unum();
+            let unum = player.unum;
             let policy = registry.fetch(player).map_err(|player| {
-                let err = {
-                    let (image, player) = match player {
-                        PlayerConfig::Bot(bot) => (bot.image.clone(), bot.into()),
-                        PlayerConfig::Agent(agent) => (agent.image.clone(), agent.into()),
-                    };
-
-                    Error::PolicyNotFound { image, player }
-                };
+                let err = Error::PolicyNotFound { image: player.image.clone() };
                 self.status_tx.send(TeamStatus::Error(err.clone())).ok();
                 err
             })?;
 
-            if policy.meta().player.kind.is_agent() {
+            if policy.info().kind.is_agent() {
                 if self.agents.contains(&unum) { continue }
                 self.agents.insert(unum);
             }
@@ -123,30 +107,8 @@ impl Team {
             let player = PolicyPlayer::new(policy);
             player.spawn().await.map_err(|e|Error::SpawnPlayer(format!("{e:?}")))?;
             self.players.insert(unum, player.into());
-            
-            // match player {
-            //     PlayerConfig::Bot(bot_cfg) => {
-            //         let bot_policy = registry.fetch_bot(bot_cfg).ok_or_else(|| {
-            //             let err = Error::PolicyNotFound { image: bot_cfg.image, player: bot_cfg.into() };
-            //             self.status_tx.send(TeamStatus::Error(err)).ok();
-            //             err
-            //         })?;
-            // 
-            //         self.players.insert(unum, PolicyPlayer::new(bot_policy).into());
-            //     }
-            //     PlayerConfig::Agent(agent_cfg) => {
-            //         let agent_policy = registry.fetch_agent(agent_cfg).ok_or_else(|| {
-            //             let err = Error::PolicyNotFound { image: agent_cfg.image, player: agent_cfg.into() };
-            //             self.status_tx.send(TeamStatus::Error(err)).ok();
-            //             err
-            //         })?;
-            // 
-            //         self.players.insert(unum, PolicyPlayer::new(agent_policy).into());
-            //         self.agents.insert(unum);
-            //     }
-            // }
 
-            tokio::time::sleep(Duration::from_millis(200)).await;
+            interval.tick().await;
         }
 
         if let Err(e) = self.status_tx.send(TeamStatus::Running) {
@@ -157,18 +119,14 @@ impl Team {
     }
 
 
-    pub async fn wait(&self) -> Result<()> {
+    pub async fn wait(&self) -> Result<TeamStatus> {
         let mut watch = self.status_watch();
         if watch.wait_for(|s| s.is_finished()).await.is_err() {
             return Err(Error::ChannelClosed { ch_name: "TeamStatus" });
         }
 
         let status = watch.borrow().clone();
-        match status {
-            TeamStatus::Idle => Ok(()),
-            TeamStatus::Error(err) => Err(err),
-            _ => unreachable!("wait_for should only return when status is Idle or Error"),
-        }
+        Ok(status)
     }
 
     pub async fn shutdown(&mut self) {
@@ -184,12 +142,13 @@ impl Team {
         self.agents.clear();
     }
 
-    pub fn policies(&self) -> Vec<PolicyMeta> {
-        let mut policies = Vec::with_capacity(self.players.len());
-        for player in self.players.iter() {
-            policies.push(player.meta());
+    pub fn info(&self) -> TeamInfo {
+        TeamInfo {
+            name: self.config.name().to_string(),
+            side: self.config.side(),
+            status: self.status_now(),
+            players: self.players.iter().map(|entry| (*entry.key(), entry.info())).collect(),
         }
-        policies
     }
     
     pub fn len(&self) -> usize {
@@ -206,7 +165,10 @@ pub enum Error {
     ChannelClosed { ch_name: &'static str },
     
     #[error("Image '{image:?}' for policy is not found in registry.")]
-    PolicyNotFound { image: ImageQuery, player: PlayerMeta },
+    PolicyNotFound { image: ImageDeclaration },
+
+    #[error("No matched metadata has been provided.")]
+    NoMatchMetaData,
 
     #[error("Failed to spawn player: {0}")]
     SpawnPlayer(String),

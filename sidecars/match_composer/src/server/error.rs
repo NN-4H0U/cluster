@@ -41,3 +41,5 @@ impl IntoResponse for Error {
         (status, body).into_response()
     }
 }
+
+pub type Result<T> = std::result::Result<T, Error>;

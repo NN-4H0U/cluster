@@ -1,10 +1,11 @@
-use crate::player::{PolicyMeta, PolicyPlayer};
 use std::fmt::Debug;
+use crate::model::player::PlayerBaseModel;
+use super::image::PolicyImage;
 
-pub trait PolicyConfig: Debug + Send + Sync + 'static {
+pub trait Policy: Debug + Send + Sync + 'static {
     fn command(&self) -> tokio::process::Command;
 
-    fn meta(&self) -> PolicyMeta;
+    fn info(&self) -> &PlayerBaseModel;
     
     fn log_dir(&self) -> Option<std::path::PathBuf>;
 
@@ -16,16 +17,33 @@ pub trait PolicyConfig: Debug + Send + Sync + 'static {
     }
 }
 
-impl PolicyConfig for Box<dyn PolicyConfig> {
+impl Policy for Box<dyn Policy> {
     fn command(&self) -> tokio::process::Command {
         (**self).command()
     }
 
-    fn meta(&self) -> PolicyMeta {
-        (**self).meta()
+    fn info(&self) -> &PlayerBaseModel {
+        (**self).info()
     }
 
     fn log_dir(&self) -> Option<std::path::PathBuf> {
         (**self).log_dir()
     }
 }
+
+
+#[derive(Debug)]
+pub struct PlayerPolicy<P> {
+    pub player: P,
+    pub image: Box<dyn PolicyImage>,
+}
+
+impl<P> PlayerPolicy<P> {
+    pub fn new(player: P, image: Box<dyn PolicyImage>) -> Self {
+        Self {
+            player,
+            image,
+        }
+    }
+}
+

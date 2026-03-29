@@ -1,23 +1,26 @@
 use axum::extract::State;
 use axum::{Json, Router, routing};
-use serde::Deserialize;
-
-use crate::schema::v1::ConfigV1;
-use super::super::{AppState, Error};
-use super::super::response::StartResponse;
+use serde::{Deserialize, Serialize};
+use crate::agones::AgonesMetaData;
+use super::{AppState, Error};
 
 #[derive(Deserialize)]
 pub struct RestartRequest {
     #[serde(flatten)]
-    pub config: Option<ConfigV1>,
+    pub config: Option<AgonesMetaData>,
+}
+
+#[derive(Serialize)]
+pub struct RestartResponse {
+    
 }
 
 async fn post(
     State(state): State<AppState>,
     Json(req): Json<RestartRequest>,
-) -> Result<Json<StartResponse>, Error> {
+) -> Result<Json<RestartResponse>, Error> {
     state.restart(req.config).await?;
-    Ok(Json(StartResponse {
+    Ok(Json(RestartResponse {
         
     }))
 }

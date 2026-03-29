@@ -1,0 +1,23 @@
+use tokio::process::Command;
+use crate::model::ImageInfo;
+use super::PolicyImage;
+
+pub struct SSPImage {
+    pub image: ImageInfo,
+}
+
+impl From<ImageInfo> for SSPImage {
+    fn from(image: ImageInfo) -> Self {
+        SSPImage { image }
+    }
+}
+
+impl PolicyImage for SSPImage {
+    fn image(&self) -> &ImageInfo {
+        &self.image
+    }
+
+    fn cmd(&self) -> Command {
+        Command::new(self.image().path.join("start_player.sh"))
+    }
+}

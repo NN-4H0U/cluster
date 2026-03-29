@@ -1,15 +1,18 @@
 use axum::extract::State;
 use axum::{Json, Router, routing};
-use serde::Deserialize;
-
-use crate::schema::v1::ConfigV1;
-use super::super::{AppState, Error};
-use super::super::response::{StartResponse};
+use serde::{Deserialize, Serialize};
+use crate::agones::AgonesMetaData;
+use super::{AppState, Error};
 
 #[derive(Deserialize)]
 pub struct StartRequest {
     #[serde(flatten)]
-    pub config: Option<ConfigV1>,
+    pub config: Option<AgonesMetaData>,
+}
+
+#[derive(Serialize)]
+pub struct StartResponse {
+
 }
 
 async fn post(

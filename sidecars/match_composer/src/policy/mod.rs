@@ -1,11 +1,8 @@
-mod bot;
-mod agent;
+mod helios;
+mod ssp;
 mod policy;
 mod registry;
+mod image;
 
-
-pub use bot::PolicyBotConfig;
-pub use agent::PolicyAgentConfig;
+pub use policy::{Policy, PlayerPolicy};
 pub use registry::PolicyRegistry;
-
-pub use policy::PolicyConfig;

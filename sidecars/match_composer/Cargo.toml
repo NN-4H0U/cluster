@@ -21,6 +21,3 @@ thiserror.workspace = true
 
 common = { path = "../../common" }
 async-trait = "0.1.89"
-
-[dev-dependencies]
-schemars = { version = "1", features = ["derive"] }

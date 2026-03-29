@@ -3,14 +3,13 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Duration;
 use log::{error, info, warn};
-use serde::Serialize;
 use tokio::fs::File;
 use tokio::io::{AsyncWriteExt, BufWriter};
 use tokio::sync::{watch, OnceCell, SetError};
 use tokio::task::JoinHandle;
 use common::process::{Process, ProcessStatus};
-use crate::config::{ImageMeta, ServerConfig};
-use crate::policy::PolicyConfig;
+use crate::model::player::PlayerBaseModel;
+use crate::policy::Policy;
 
 const STDOUT_LOG_PREFIX: &[u8] = b"[stdout] ";
 const STDERR_LOG_PREFIX: &[u8] = b"[stderr] ";
@@ -19,41 +18,9 @@ const LOG_FLUSH_THRESHOLD: usize = 16; // 16 lines
 const LOG_FLUSH_INTERVAL: Duration = Duration::from_secs(15);
 
 
-#[derive(Serialize, Debug, Clone)]
-#[serde(tag = "kind")]
-pub enum PlayerKind {
-    Bot,
-    Agent {
-        grpc: ServerConfig,
-    },
-}
-
-impl PlayerKind {
-    pub fn is_bot(&self) -> bool {
-        matches!(self, PlayerKind::Bot)
-    }
-
-    pub fn is_agent(&self) -> bool {
-        matches!(self, PlayerKind::Agent { .. })
-    }
-}
-
-#[derive(Serialize, Debug, Clone)]
-pub struct PlayerMeta {
-    pub unum: u8,
-    pub kind: PlayerKind,
-    pub team_name: String,
-}
-
-#[derive(Serialize, Debug, Clone)]
-pub struct PolicyMeta {
-    pub player: PlayerMeta,
-    pub image: ImageMeta,
-}
-
 #[async_trait::async_trait]
 pub trait Player: Debug + Send + Sync + 'static {
-    fn meta(&self) -> PolicyMeta;
+    fn model(&self) -> &PlayerBaseModel;
     fn status_watch(&self) -> Option<watch::Receiver<ProcessStatus>>;
     async fn spawn(&self) -> Result<()>;
     async fn shutdown(&mut self) -> Result<()>;
@@ -61,14 +28,14 @@ pub trait Player: Debug + Send + Sync + 'static {
 
 
 #[derive(Debug)]
-pub struct PolicyPlayer<Config: PolicyConfig + Sync + Send + 'static> {
+pub struct PolicyPlayer<Config: Policy + Sync + Send + 'static> {
     pub config: Config,
     pub process: OnceCell<Process>,
     pub monitor_task: OnceCell<JoinHandle<()>>,
     pub logging_task: OnceCell<JoinHandle<Result<()>>>,
 }
 
-impl<Config: PolicyConfig + Sync + Send + 'static> PolicyPlayer<Config> {
+impl<Config: Policy + Sync + Send + 'static> PolicyPlayer<Config> {
     pub fn new(config: Config) -> Self {
         Self {
             config,
@@ -137,7 +104,6 @@ impl<Config: PolicyConfig + Sync + Send + 'static> PolicyPlayer<Config> {
 
             let _ = loop { tokio::select! {
                 _ = &mut process_end => {
-                    info!("Bot process ended, stopping log task");
                     break <Result<()>>::Ok(());
                 },
 
@@ -188,9 +154,9 @@ impl<Config: PolicyConfig + Sync + Send + 'static> PolicyPlayer<Config> {
 }
 
 #[async_trait::async_trait]
-impl<Config: PolicyConfig + Sync + Send + 'static> Player for PolicyPlayer<Config> {
-    fn meta(&self) ->PolicyMeta {
-        self.config.meta()
+impl<Config: Policy + Sync + Send + 'static> Player for PolicyPlayer<Config> {
+    fn model(&self) -> &PlayerBaseModel {
+        self.config.info()
     }
 
     fn status_watch(&self) -> Option<watch::Receiver<ProcessStatus>> {
@@ -209,9 +175,9 @@ impl<Config: PolicyConfig + Sync + Send + 'static> Player for PolicyPlayer<Confi
         }).await?;
 
         if let Some(log_root) = &self.config.log_dir() {
-            let meta = self.meta();
+            let info = self.model();
             let path = log_root.join(
-                format!("{}-{}-stdio.log", meta.player.team_name, meta.player.unum)
+                format!("{}-{}-stdio.log", info.team, info.unum)
             );
 
             let logging_task = Self::spawn_log_task(&process, path)?;

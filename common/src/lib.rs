@@ -4,3 +4,4 @@ pub mod process;
 pub mod types;
 pub mod udp;
 pub mod utils;
+pub mod errors;
