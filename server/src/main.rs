@@ -1,6 +1,5 @@
 mod error;
 mod http;
-mod response;
 mod proxy;
 mod state;
 
@@ -17,6 +16,8 @@ use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 use tower_http::trace::TraceLayer;
 use service::Service;
+
+use common::axum::response;
 
 use crate::proxy::udp::UdpProxy;
 use crate::state::AppState;
