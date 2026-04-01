@@ -18,6 +18,12 @@ pub enum Error {
     #[error("Failed to build the metadata, {0}")]
     InvalidMetaData(String),
     
+    #[error("Failed to create Fleet, {0}")]
+    CreateFleet(#[source] kube::Error),
+    
+    #[error("Failed to delete Fleet, {0}")]
+    DeleteFleet(#[source] kube::Error),
+    
     #[error("No gameservers available for allocation: {0}")]
     NoSuchGs(#[source] kube::Error),
 

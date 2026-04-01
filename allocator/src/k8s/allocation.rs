@@ -1,105 +1,19 @@
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::net::IpAddr;
-use std::collections::HashMap;
 
-use kube::api::{Api, PostParams};
-use serde::{Deserialize, Serialize};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
+use kube::api::{Api, PostParams};
 
 use common::errors::{BuilderError, BuilderResult};
 
+use crate::k8s::crd::{
+    AllocationMetadata, GameServerAllocation, GameServerAllocationSpec, GameServerPort,
+    GameServerSelector,
+};
 use crate::k8s::K8sClient;
 use crate::metadata::MetaData;
 use super::{Error, Result};
-
-// GameServerAllocation CRD structures
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct GameServerAllocation {
-    #[serde(rename = "apiVersion")]
-    pub api_version: String,
-    pub kind: String,
-    pub metadata: ObjectMeta,
-    pub spec: GameServerAllocationSpec,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub status: Option<GameServerAllocationStatus>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct GameServerAllocationSpec {
-    pub selectors: Vec<GameServerSelector>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub scheduling: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub metadata: Option<AllocationMetadata>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct GameServerSelector {
-    #[serde(rename = "matchLabels", skip_serializing_if = "Option::is_none")]
-    pub match_labels: Option<HashMap<String, String>>,
-    #[serde(rename = "matchExpressions", skip_serializing_if = "Option::is_none")]
-    pub match_expressions: Option<Vec<LabelSelectorRequirement>>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct LabelSelectorRequirement {
-    pub key: String,
-    pub operator: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub values: Option<Vec<String>>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct AllocationMetadata {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub annotations: Option<HashMap<String, String>>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct GameServerAllocationStatus {
-    pub state: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub address: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ports: Option<Vec<GameServerPort>>,
-    #[serde(rename = "gameServerName", skip_serializing_if = "Option::is_none")]
-    pub game_server_name: Option<String>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct GameServerPort {
-    pub name: String,
-    pub port: u16,
-}
-
-impl kube::Resource for GameServerAllocation {
-    type DynamicType = ();
-    type Scope = kube::core::NamespaceResourceScope;
-
-    fn kind(_: &()) -> std::borrow::Cow<'_, str> {
-        "GameServerAllocation".into()
-    }
-
-    fn group(_: &()) -> std::borrow::Cow<'_, str> {
-        "allocation.agones.dev".into()
-    }
-
-    fn version(_: &()) -> std::borrow::Cow<'_, str> {
-        "v1".into()
-    }
-
-    fn plural(_: &()) -> std::borrow::Cow<'_, str> {
-        "gameserverallocations".into()
-    }
-
-    fn meta(&self) -> &ObjectMeta {
-        &self.metadata
-    }
-
-    fn meta_mut(&mut self) -> &mut ObjectMeta {
-        &mut self.metadata
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct GsAllocation {
@@ -179,12 +93,11 @@ impl GsAllocationBuilder {
 impl K8sClient {
     pub async fn allocate(
         &self,
-        namespace: &str,
         fleet_name: &str,
         scheduling: &str,
         metadata: impl TryInto<MetaData, Error: Debug>,
     ) -> Result<GsAllocation> {
-        let api: Api<GameServerAllocation> = Api::namespaced(self.client.clone(), namespace);
+        let api: Api<GameServerAllocation> = Api::namespaced(self.client.clone(), &self.namespace);
 
         let metadata = metadata.try_into()
             .map_err(|e| Error::InvalidMetaData(format!("{e:?}")))?;
@@ -211,7 +124,7 @@ impl K8sClient {
             api_version: "allocation.agones.dev/v1".to_string(),
             kind: "GameServerAllocation".to_string(),
             metadata: ObjectMeta {
-                namespace: Some(namespace.to_string()),
+                namespace: Some(self.namespace.to_string()),
                 ..Default::default()
             },
             spec: GameServerAllocationSpec {

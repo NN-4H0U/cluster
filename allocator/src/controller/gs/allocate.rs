@@ -27,7 +27,6 @@ pub async fn post(
 ) -> Response {
     // TODO
     let res = state.k8s.allocate(
-        &state.config.namespace,
         &state.config.fleet_name,
         state.config.scheduling.as_str(),
         schema.clone(),

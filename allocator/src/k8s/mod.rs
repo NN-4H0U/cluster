@@ -1,5 +1,7 @@
 use kube::Client;
+use arcstr::ArcStr;
 
+mod crd;
 mod fleet;
 mod allocation;
 pub mod error;
@@ -11,15 +13,19 @@ pub use allocation::GsAllocation;
 
 #[derive(Clone)]
 pub struct K8sClient {
+    namespace: ArcStr,
     client: Client,
 }
 
 impl K8sClient {
-    pub async fn new() -> Result<Self> {
+    pub async fn new(namespace: ArcStr) -> Result<Self> {
         let client = Client::try_default().await
             .map_err(Error::CreateClient)?;
         
-        Ok(Self { client })
+        Ok(Self {
+            namespace,
+            client,
+        })
     }
 
     fn client(&self) -> &Client {
