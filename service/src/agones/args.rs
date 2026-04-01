@@ -1,5 +1,6 @@
 use clap::Parser;
 use super::BaseArgs;
+use super::match_composer::MatchComposerArgs;
 
 #[derive(Parser, Debug)]
 pub struct AgonesArgs {
@@ -15,4 +16,7 @@ pub struct AgonesArgs {
 
     #[clap(flatten)]
     pub base_args: BaseArgs,
+
+    #[clap(flatten)]
+    pub mc_args: MatchComposerArgs,
 }

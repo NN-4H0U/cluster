@@ -32,6 +32,14 @@ pub enum Error {
     #[cfg(feature = "agones")]
     #[error("Failed to shutdown Agones SDK: {0}")]
     AgonesSdkShutdownFailed(#[source] agones::errors::Error),
+
+    #[cfg(feature = "agones")]
+    #[error("Failed to start match_composer: {0}")]
+    MatchComposerStartFailed(#[source] crate::agones::match_composer::MatchComposerError),
+
+    #[cfg(feature = "agones")]
+    #[error("Failed to stop match_composer: {0}")]
+    MatchComposerStopFailed(#[source] crate::agones::match_composer::MatchComposerError),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
