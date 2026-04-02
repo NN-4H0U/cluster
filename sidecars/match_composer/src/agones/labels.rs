@@ -53,7 +53,7 @@ impl Labels {
             };
         }
 
-        todo!()
+        Labels { left, right }
     }
 }
 

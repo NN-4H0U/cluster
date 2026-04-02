@@ -9,12 +9,12 @@ pub struct Args {
     #[arg(long, env = "MATCH_COMPOSER_ENABLED", group = "match_composer", help = "Enable Match Composer Sidecar Mode")]
     pub enabled: bool,
 
-    #[arg(long, env = "MATCH_COMPOSER_HOST", default_value = "127.0.0.1", requires = "match_composer", help = "Match Composer HTTP server port, default at 6657")]
+    #[arg(long, env = "MATCH_COMPOSER_HOST", default_value = "127.0.0.1", requires = "match_composer", help = "Match Composer HTTP server host, default at 127.0.0.1")]
     pub mc_host: IpAddr,
 
     #[arg(long, env = "MATCH_COMPOSER_PORT", default_value_t = 6657, requires = "match_composer", help = "Match Composer HTTP server port, default at 6657")]
     pub mc_port: u16,
-    
+
     #[arg(long, env = "MATCH_COMPOSER_STATUS_POLL_INTERVAL_MS", default_value_t = 5000, requires = "match_composer", help = "Match Composer status poll interval in milliseconds, default at 5000ms")]
     pub mc_status_poll_interval: u64,
 

@@ -113,6 +113,7 @@ impl Team {
 
         if let Err(e) = self.status_tx.send(TeamStatus::Running) {
             self.shutdown().await;
+            return Err(Error::ChannelClosed { ch_name: "TeamStatus" });
         }
 
         Ok(())

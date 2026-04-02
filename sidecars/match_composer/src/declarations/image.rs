@@ -1,9 +1,11 @@
+use std::fmt;
 use std::ops::Range;
 use std::str::FromStr;
-use serde::{Deserialize, Serialize};
+use serde::{de, Deserialize, Deserializer, Serialize};
+use serde::de::Visitor;
 use common::errors::{BuilderError, BuilderResult};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone)]
 #[serde(transparent)]
 pub struct Image {
     #[serde(rename = "image")]
@@ -63,5 +65,38 @@ impl FromStr for Image {
 
     fn from_str(s: &str) -> BuilderResult<Self> {
         s.try_into()
+    }
+}
+
+impl<'de> Deserialize<'de> for Image {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct ImageVisitor;
+
+        impl<'de> Visitor<'de> for ImageVisitor {
+            type Value = Image;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a string in the format 'provider/model'")
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Image, E>
+            where
+                E: de::Error,
+            {
+                Image::try_from(value).map_err(de::Error::custom)
+            }
+
+            fn visit_string<E>(self, value: String) -> Result<Image, E>
+            where
+                E: de::Error,
+            {
+                Image::try_from(value).map_err(de::Error::custom)
+            }
+        }
+
+        deserializer.deserialize_str(ImageVisitor)
     }
 }

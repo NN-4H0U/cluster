@@ -58,7 +58,7 @@ async fn main() {
             port: args.rcss_port,
         },
         log_root: args.log_root,
-        registry_path: Default::default(),
+        registry_path: args.hub_path,
     };
 
 
