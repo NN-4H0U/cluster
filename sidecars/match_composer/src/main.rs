@@ -42,7 +42,7 @@ async fn main() {
         serde_json::from_str::<AgonesMetaData>(
             &std::fs::read_to_string(args.file.unwrap())
                 .expect("Failed to read config file")
-        ).expect("Failed to parse ConfigV1 from config file")
+        ).expect("Failed to parse AgonesMetaData from config file")
     };
 
     // let config = MatchComposerConfig::try_from(meta)

@@ -26,7 +26,7 @@ pub struct Args {
     pub hub_path: PathBuf,
 
     /// Root directory for match logs
-    #[arg(long, env = "LOG_ROOT", default_value = None)]
+    #[arg(long, env = "LOG_ROOT")]
     pub log_root: Option<PathBuf>,
 
 

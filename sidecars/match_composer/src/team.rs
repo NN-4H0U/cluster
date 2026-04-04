@@ -183,16 +183,17 @@ impl Team {
         let team_name = config.name().to_string();
 
         type WatchFut = Pin<Box<dyn
-            Future<Output = (Unum, ProcessStatusKind, watch::Receiver<ProcessStatus>)>
+            Future<Output = (Unum, Result<ProcessStatusKind>, watch::Receiver<ProcessStatus>)>
             + Send
         >>;
 
         fn next_change(unum: Unum, mut rx: watch::Receiver<ProcessStatus>) -> WatchFut {
             Box::pin(async move {
                 let kind = match rx.changed().await {
-                    Ok(()) => rx.borrow().kind.clone(),
-                    Err(_) => ProcessStatusKind::Dead("watch channel closed".into()),
+                    Ok(()) => Ok(rx.borrow().kind.clone()),
+                    Err(e) => Err(Error::ChannelClosed { ch_name: "PlayerStatus" }),
                 };
+
                 (unum, kind, rx)
             })
         }
@@ -204,7 +205,15 @@ impl Team {
                 .map(|(unum, rx)| next_change(unum, rx))
                 .collect();
 
-            while let Some((unum, kind, rx)) = futs.next().await {
+            while let Some((unum, maybe_kind, rx)) = futs.next().await {
+                let kind = match maybe_kind {
+                    Ok(k) => k,
+                    Err(e) => {
+                        warn!("[{team_name}] Player {unum} status watch closed: {e}");
+                        continue
+                    }
+                };
+
                 trace!("[{team_name}] Player {unum} status: {}", kind.name());
                 snapshots.insert(unum, kind);
 

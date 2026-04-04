@@ -38,8 +38,11 @@ impl Serialize for TeamStatusInfo {
         let mut state = serializer.serialize_map(None)?;
         state.serialize_entry("status", status)?;
 
-        if let Aborting(reason) = self {
-            state.serialize_entry("reason", &reason.to_string())?;
+        match self {
+            Aborting(reason) | Error(reason) => {
+                state.serialize_entry("reason", &reason.to_string())?;
+            },
+            _ => {}
         }
         
         state.end()
