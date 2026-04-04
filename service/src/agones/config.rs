@@ -1,10 +1,12 @@
 use std::time::Duration;
+use super::match_composer::MatchComposerConfig;
 
 #[derive(Clone, Debug)]
 pub struct AgonesConfig {
     pub health_check_interval: Duration,
     pub sdk: AgonesSdkConfig,
     pub shutdown: AgonesAutoShutdownConfig,
+    pub match_composer: Option<MatchComposerConfig>,
 }
 
 impl AgonesConfig { pub fn new() -> Self { Self::default() } }
@@ -14,6 +16,7 @@ impl Default for AgonesConfig {
             health_check_interval: Duration::from_secs(5),
             sdk: AgonesSdkConfig::default(),
             shutdown: AgonesAutoShutdownConfig::default(),
+            match_composer: None,
         }
     }
 }

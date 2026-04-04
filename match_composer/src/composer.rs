@@ -71,12 +71,19 @@ impl MatchComposer {
             (Team::new(team_l), Team::new(team_r))
         };
 
-        Ok(Match::new(
-            server,
-            meta,
-            team_l,
-            team_r,
-        ))
+        let game = {
+            let mut game = Match::new(
+                server,
+                meta,
+                team_l,
+                team_r,
+            );
+
+            game.spawn(&self.registry).await?;
+            game
+        };
+        
+        Ok(game)
     }
 }
 

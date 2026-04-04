@@ -1,6 +1,7 @@
 mod agones;
 mod args;
 mod config;
+pub(crate) mod match_composer;
 
 use crate::base::{BaseService, BaseArgs};
 

@@ -20,6 +20,10 @@ impl<'a> ServiceError<'a> {
             Error::AgonesSdkReadyFailed(_) => unreachable!(),
             #[cfg(feature = "agones")]
             Error::AgonesSdkShutdownFailed(_) => unreachable!(),
+            #[cfg(feature = "agones")]
+            Error::MatchComposerStartFailed(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            #[cfg(feature = "agones")]
+            Error::MatchComposerStopFailed(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }
@@ -82,6 +86,22 @@ impl<'a> From<ServiceError<'a>> for Response {
                 Response::error(
                     "AgonesSdkShutdownFailed",
                     "TODO", // TODO
+                )
+            },
+
+            #[cfg(feature = "agones")]
+            Error::MatchComposerStartFailed(_) => {
+                Response::error(
+                    "MatchComposerStartFailed",
+                    &value.0.to_string(),
+                )
+            },
+
+            #[cfg(feature = "agones")]
+            Error::MatchComposerStopFailed(_) => {
+                Response::error(
+                    "MatchComposerStopFailed",
+                    &value.0.to_string(),
                 )
             },
         }

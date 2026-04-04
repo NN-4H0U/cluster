@@ -55,12 +55,12 @@ impl Labels {
 
         Ok(
             Self {
-                left, 
+                left,
                 right,
             }
         )
     }
-    
+
     pub fn into_map(self) -> HashMap<String, String> {
         let mut map = HashMap::new();
         for (unum, label) in self.left {

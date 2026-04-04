@@ -194,10 +194,6 @@ impl AppState {
     }
 }
 
-fn router(state: AppState) -> Router {
-    routes::route("/", state)
-}
-
 pub async fn listen(addr: SocketAddr, meta: MetaData, config: MatchComposerConfig) -> Result<JoinHandle<()>> {
     let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
     let state = AppState::new(config, Some(shutdown_rx))?;
@@ -208,7 +204,7 @@ pub async fn listen(addr: SocketAddr, meta: MetaData, config: MatchComposerConfi
     //     _state.start(Some(meta)).await
     // });
     
-    let app = router(state);
+    let app = routes::route("/", state);
 
     let listener = TcpListener::bind(addr)
         .await
