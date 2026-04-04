@@ -12,7 +12,7 @@
 # sample_player, player.conf, formations-dt, and start_player.sh side-by-side.
 #
 # Build from workspace root:
-#   docker build -f sidecars/match_composer/Dockerfile -t match_composer .
+#   docker build -f match_composer/Dockerfile -t match_composer .
 ###############################################################################
 
 # =============================================================================
@@ -157,7 +157,7 @@ RUN ldconfig
 # ---------- hub/Cyrus2D/SoccerSimulationProxy ----------
 #   Source build artefacts are in /tmp/SoccerSimulationProxy/build/bin/
 #   We place them alongside the custom start_player.sh from our repo.
-COPY sidecars/match_composer/hub/Cyrus2D/SoccerSimulationProxy/start_player.sh \
+COPY match_composer/hub/Cyrus2D/SoccerSimulationProxy/start_player.sh \
      /app/hub/Cyrus2D/SoccerSimulationProxy/start_player.sh
 
 COPY --from=ssp-builder /tmp/SoccerSimulationProxy/build/bin/sample_player \
@@ -173,7 +173,7 @@ COPY --from=ssp-builder /tmp/SoccerSimulationProxy/build/bin/formations-dt \
 #   Source build artefacts are in /tmp/helios-base/src/
 #   We place them alongside the custom start_player.sh from our repo.
 
-COPY sidecars/match_composer/hub/HELIOS/helios-base/start_player.sh \
+COPY match_composer/hub/HELIOS/helios-base/start_player.sh \
      /app/hub/HELIOS/helios-base/start_player.sh
 
 COPY --from=helios-builder /tmp/helios-base/src/sample_player \
