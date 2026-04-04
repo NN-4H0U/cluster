@@ -2,11 +2,10 @@ use axum::extract::State;
 use axum::{Json, Router, routing};
 
 use super::super::{AppState, Error};
-use super::super::response::MessageResponse;
 
-async fn post(State(state): State<AppState>) -> Result<Json<MessageResponse>, Error> {
+async fn post(State(state): State<AppState>) -> Result<Json<()>, Error> {
     state.stop().await?;
-    Ok(Json(MessageResponse { message: "Composer stopped." }))
+    Ok(Json(()))
 }
 
 pub fn route(path: &str) -> Router<AppState> {

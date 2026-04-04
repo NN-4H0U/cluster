@@ -1,8 +1,8 @@
-use crate::config::{AgentConfig, BotConfig};
-use crate::image::ImageRegistry;
-use crate::policy::agent::AgentPolicy;
-use crate::policy::bot::BotPolicy;
 use std::path::Path;
+
+use super::image::ImageRegistry;
+use crate::model::player::PlayerModel;
+use crate::policy::{PlayerPolicy, Policy};
 
 pub struct PolicyRegistry {
     pub images: ImageRegistry,
@@ -14,16 +14,23 @@ impl PolicyRegistry {
             images: ImageRegistry::new(image_registry_path),
         }
     }
-
-    pub fn fetch_bot(&self, bot: BotConfig) -> Option<BotPolicy> {
-        let image = self.images.try_get(bot.image.clone())?;
-        let bot = BotPolicy::new(bot, image);
-        Some(bot)
-    }
-
-    pub fn fetch_agent(&self, agent: AgentConfig) -> Option<AgentPolicy> {
-        let image = self.images.try_get(agent.image.clone())?;
-        let agent = AgentPolicy::new(agent, image);
-        Some(agent)
+    
+    pub fn fetch(&self, player: PlayerModel) -> Result<Box<dyn Policy>, PlayerModel> {
+        let image = self.images.try_get(&player.image.provider(), &player.image.model());
+        let image = match image {
+            Some(image) => image,
+            None => return Err(player),
+        };
+        
+        let ret = match player {
+            PlayerModel::Helios(helios) => {
+                Box::new(PlayerPolicy::new(helios, image)) as Box<dyn Policy>
+            },
+            PlayerModel::Ssp(ssp) => {
+                Box::new(PlayerPolicy::new(ssp, image)) as Box<dyn Policy>
+            },
+        };
+        
+        Ok(ret)
     }
 }

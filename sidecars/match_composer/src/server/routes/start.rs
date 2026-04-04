@@ -1,24 +1,27 @@
 use axum::extract::State;
 use axum::{Json, Router, routing};
-use serde::Deserialize;
-
-use crate::schema::v1::ConfigV1;
-use super::super::{AppState, Error};
-use super::super::response::{AgentConnInfo, StartResponse};
+use serde::{Deserialize, Serialize};
+use crate::agones::AgonesMetaData;
+use super::{AppState, Error};
 
 #[derive(Deserialize)]
 pub struct StartRequest {
     #[serde(flatten)]
-    pub config: Option<ConfigV1>,
+    pub config: Option<AgonesMetaData>,
+}
+
+#[derive(Serialize)]
+pub struct StartResponse {
+
 }
 
 async fn post(
     State(state): State<AppState>,
     Json(req): Json<StartRequest>,
 ) -> Result<Json<StartResponse>, Error> {
-    let agents = state.start(req.config).await?;
+    state.start(req.config).await?;
     Ok(Json(StartResponse {
-        agents: agents.iter().map(AgentConnInfo::from).collect(),
+
     }))
 }
 

@@ -6,15 +6,16 @@ use log::{debug, info, warn};
 use tokio::sync::{mpsc, watch, RwLock};
 use tokio_util::sync::CancellationToken;
 use agones::Sdk as AgonesSdk;
-use process::CoachedProcessSpawner;
 use crate::{Error, Result, ServerStatus};
-use crate::agones::config::AgonesAutoShutdownConfig;
+use crate::agones::config::{AgonesAutoShutdownConfig};
 use super::{AgonesConfig, AgonesArgs, BaseService};
+use super::match_composer::MatchComposerClient;
 
 pub struct AgonesService {
     sdk:    Arc<RwLock<AgonesSdk>>,
     cfg:    AgonesConfig,
     service: BaseService,
+    mc_client: Option<MatchComposerClient>,
 
     cancel_token: CancellationToken,
 
@@ -46,30 +47,36 @@ impl AgonesService {
     pub async fn from_args(args: AgonesArgs) -> Result<Self> {
         let sdk = agones::Sdk::new(
             args.agones_port,
-            args.agones_keep_alive.map(|s| Duration::from_secs(s)),
-        ).await.map_err(|e| Error::AgonesSdkFailToConnect(e))?;
+            args.agones_keep_alive.map(Duration::from_secs),
+        ).await.map_err(Error::AgonesSdkFailToConnect)?;
 
         let base = BaseService::from_args(args.base_args).await;
+
+        let mc_config = args.mc_args.into_config();
+        let mc_client = mc_config.as_ref()
+            .map(|cfg| MatchComposerClient::new(cfg.client_cfg.clone()));
+        
 
         let config = {
             let mut cfg = AgonesConfig::default();
             cfg.health_check_interval = Duration::from_secs(args.health_check_interval);
             cfg.shutdown.on_finish = args.auto_shutdown_on_finish;
             cfg.sdk.port = args.agones_port;
-            cfg.sdk.keep_alive = args.agones_keep_alive.map(|s| Duration::from_secs(s));
+            cfg.sdk.keep_alive = args.agones_keep_alive.map(Duration::from_secs);
+            cfg.match_composer = mc_config;
 
             cfg
         };
 
-        Ok(AgonesService::new(sdk, base, config))
+        Ok(AgonesService::new(sdk, base, config, mc_client))
     }
 
-    pub(super) fn new(sdk: agones::Sdk, service: BaseService, config: AgonesConfig) -> Self {
+    pub(super) fn new(sdk: agones::Sdk, service: BaseService, config: AgonesConfig, mc_client: Option<MatchComposerClient>) -> Self {
         let sdk = Arc::new(RwLock::new(sdk));
         let cancel_token = CancellationToken::new();
         let (shutdown_tx, shutdown_rx) = watch::channel(None);
 
-        Self { sdk, service, cfg: config, cancel_token, shutdown_tx, shutdown_rx }
+        Self { sdk, service, cfg: config, mc_client, cancel_token, shutdown_tx, shutdown_rx }
     }
 
     pub async fn spawn(&self) -> Result<()> {
@@ -95,6 +102,29 @@ impl AgonesService {
                 self.shutdown_tx.clone(),
             )
         );
+
+        // Start match_composer players (with retry for sidecar startup race)
+        if let Some(mc) = &self.mc_client {
+            if let Err(e) = mc.start().await {
+                warn!("[AgonesService] MatchComposer start failed, rolling back rcssserver: {e}");
+                let _ = self.service.shutdown().await;
+                return Err(Error::MatchComposerStartFailed(e));
+            }
+            info!("[AgonesService] MatchComposer started successfully");
+        }
+
+        // Start match_composer status polling task
+        if let Some(mc) = &self.mc_client {
+            let poll_interval = self.cfg.match_composer
+                .as_ref()
+                .map(|c| c.status_poll_interval)
+                .unwrap_or(Duration::from_secs(5));
+            tokio::spawn(Self::run_mc_status_polling(
+                mc.clone(),
+                self.cancel_token.clone(),
+                poll_interval,
+            ));
+        }
 
         sdk_guard.ready().await
             .map_err(Error::AgonesSdkReadyFailed)?;
@@ -178,10 +208,48 @@ impl AgonesService {
 
     pub async fn shutdown(&self) -> Result<()> {
         self.cancel_token.cancel();
+
+        // Stop match_composer players first
+        if let Some(mc) = &self.mc_client {
+            if let Err(e) = mc.stop().await {
+                warn!("[AgonesService] Failed to stop match_composer: {e}");
+            } else {
+                info!("[AgonesService] MatchComposer stopped successfully");
+            }
+        }
+
         self.service.shutdown().await?;
         self.sdk.write().await.shutdown().await
             .map_err(Error::AgonesSdkShutdownFailed)?;
         Ok(())
+    }
+
+    async fn run_mc_status_polling(
+        client: MatchComposerClient,
+        cancel_token: CancellationToken,
+        interval: Duration,
+    ) {
+        let mut ticker = tokio::time::interval(interval);
+        info!("[AgonesService] MatchComposer status polling started (interval: {}ms)", interval.as_millis());
+
+        loop {
+            tokio::select! {
+                _ = cancel_token.cancelled() => {
+                    info!("[AgonesService] MatchComposer status polling stopped: cancelled");
+                    break;
+                }
+                _ = ticker.tick() => {
+                    match client.status().await {
+                        Ok(status) => {
+                            debug!("[AgonesService] MatchComposer status: in_match={}", status.in_match);
+                        }
+                        Err(e) => {
+                            warn!("[AgonesService] MatchComposer status poll failed: {e}");
+                        }
+                    }
+                }
+            }
+        }
     }
 
     fn health_check_interval(&self) -> Duration {

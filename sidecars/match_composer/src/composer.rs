@@ -1,80 +1,192 @@
-use std::net::Ipv4Addr;
-use std::path::{Path, PathBuf};
-use tokio::process::Child;
+use std::path::PathBuf;
+use std::sync::{Arc, OnceLock};
+use chrono::{DateTime, Utc};
+use log::info;
+
+use tokio::sync::{watch, RwLock};
+
 use common::types::Side;
 
-use crate::config::{MatchComposerConfig, ServerConfig};
+use crate::team::{self, Team, TeamStatus};
+use crate::agones::AgonesMetaData;
 use crate::policy::PolicyRegistry;
-use crate::team::Team;
+use crate::declarations::HostPort;
+use crate::info::game::GameStatusInfo;
+use crate::info::GameInfo;
 
-#[derive(Debug, Clone)]
-pub struct AgentConnectionInfo {
-    pub side: Side,
-    pub unum: u8,
-    pub team_name: String,
-    pub grpc_host: Ipv4Addr,
-    pub grpc_port: u16,
+#[derive(Clone, Debug)]
+pub struct MatchComposerConfig {
+    pub server: HostPort,
+    pub log_root: Option<PathBuf>,
+    pub registry_path: PathBuf,
 }
 
 pub struct MatchComposer {
     pub config: MatchComposerConfig,
-    pub log_root: Option<PathBuf>,
+
+    match_meta: OnceLock<RwLock<Arc<AgonesMetaData>>>,
 
     registry: PolicyRegistry,
-    server_process: Option<Child>,
-
-    pub allies: Team,
-    pub opponents: Team,
 }
 
 impl MatchComposer {
-    pub fn new(config: MatchComposerConfig, registry_path: impl AsRef<Path>) -> Result<Self, String> {
-        let registry = PolicyRegistry::new(registry_path);
-        log::debug!("{:?}", registry.images.providers().and_then(|i| Some(i.collect::<Vec<_>>())));
+    pub fn new(
+        config: MatchComposerConfig,
+    ) -> Result<Self> {
+        let registry = PolicyRegistry::new(&config.registry_path);
 
-        let allies = Team::new(config.allies.clone(), Side::LEFT);
-        let opponents = Team::new(config.opponents.clone(), Side::RIGHT);
-        let log_root = config.log_root.clone();
         Ok(Self {
             config,
             registry,
-            server_process: None,
-            allies,
-            opponents,
-            log_root,
+            match_meta: OnceLock::new(),
         })
     }
+
+    fn is_init(&self) -> bool {
+        self.match_meta.get().is_some()
+    }
+
+    fn match_data_unchecked(&self) -> &RwLock<Arc<AgonesMetaData>> {
+        self.match_meta.get().unwrap()
+    }
+
+    pub async fn set_meta(&self, meta: AgonesMetaData) {
+        let meta = Arc::new(meta);
+        let lock = self.match_meta.get_or_init(|| RwLock::new(meta.clone()));
+        *lock.write().await = meta;
+    }
+
+    pub async fn make_match(&self, log_name: impl AsRef<str>) -> Result<Match> {
+        if !self.is_init() {
+            return Err(Error::Team(team::Error::NoMatchMetaData));
+        }
+
+        let server = self.config.server.clone();
+        let log = self.config.log_root.as_ref().map(|p| p.join(log_name.as_ref()));
+
+        let meta = self.match_data_unchecked().read().await.clone();
+        let declared = meta.as_model();
+        let (team_l, team_r) = {
+            let (team_l, team_r) = declared.teams(server.clone(), log);
+            (Team::new(team_l), Team::new(team_r))
+        };
+
+        let game = {
+            let mut game = Match::new(
+                server,
+                meta,
+                team_l,
+                team_r,
+            );
+
+            game.spawn(&self.registry).await?;
+            game
+        };
+        
+        Ok(game)
+    }
+}
+
+pub struct Match {
+    pub rcsss: HostPort,
+    pub config: Arc<AgonesMetaData>,
+    pub team_l: Team,
+    pub team_r: Team,
+    pub status: watch::Receiver<GameStatusInfo>,
     
-    
-    pub async fn shutdown(&mut self) {
-        self.allies.shutdown().await;
-        self.opponents.shutdown().await;
-        if let Some(mut proc) = self.server_process.take() {
-            let _ = proc.kill().await;
+    status_tx: watch::Sender<GameStatusInfo>,
+}
+
+impl Match {
+    pub fn new(
+        rcsss: HostPort,
+        config: Arc<AgonesMetaData>,
+        team_l: Team,
+        team_r: Team,
+    ) -> Self {
+        let (status_tx, status) = watch::channel(GameStatusInfo::Idle);
+        
+        Self {
+            rcsss,
+            config,
+            team_l,
+            team_r,
+            status,
+            status_tx,
         }
     }
 
-    pub async fn spawn_players(&mut self) -> Result<(), String> {
-        self.allies.spawn(&self.registry).await?;
-        self.opponents.spawn(&self.registry).await?;
+    pub async fn spawn(&mut self, registry: &PolicyRegistry) -> Result<()> {
+        self.team_l.spawn(registry).await?;
+        info!("Team L spawned successfully, {:?}", self.team_l.info());
+        self.team_r.spawn(registry).await?;
+        info!("Team R spawned successfully, {:?}", self.team_r.info());
+        Ok(())
+    }
+
+    pub async fn shutdown(&mut self) -> Result<()> {
+        self.team_l.shutdown().await;
+        self.team_r.shutdown().await;
+
+        let _ = self.wait().await?;
 
         Ok(())
     }
 
-    pub async fn wait(&mut self) -> Result<(), String> {
-        self.allies.wait().await?;
-        self.opponents.wait().await?;
-        Ok(())
+    pub async fn team_watch_task(team: &Team) {
+        let mut watch = team.status_watch();
+        let _ = watch.wait_for(|s| s.is_finished()).await;
     }
 
-    pub fn agent_conns(&self) -> Vec<AgentConnectionInfo> {
-        let mut conns = Vec::new();
-        conns.extend(self.allies.agent_conns.clone());
-        conns.extend(self.opponents.agent_conns.clone());
-        conns
+    pub async fn wait(&mut self) -> Result<(TeamStatus, TeamStatus)> {
+        let res = tokio::select! {
+            res_l = self.team_l.wait() => {
+                self.team_r.shutdown().await;
+                let res_r = self.team_r.wait().await;
+                (res_l?, res_r?)
+            },
+            res_r = self.team_r.wait() => {
+                self.team_l.shutdown().await;
+                let res_l = self.team_l.wait().await;
+                (res_l?, res_r?)
+            }
+        };
+
+        Ok(res)
     }
 
-    pub fn rcss_conn(&self) -> ServerConfig {
-        self.config.server.clone()
+    pub fn team(&self, side: Side) -> &Team {
+        match side {
+            Side::LEFT => &self.team_l,
+            Side::RIGHT => &self.team_r,
+            _ => panic!("invalid side"),
+        }
+    }
+
+    pub fn info(&self) -> GameInfo {
+        GameInfo {
+            rcss: self.rcsss.clone(),
+            status: self.status_now(),
+            team_l: self.team_l.info(),
+            team_r: self.team_r.info(),
+        }
+    }
+    
+    pub fn status_now(&self) -> GameStatusInfo {
+        self.status.borrow().clone()
+    }
+    
+    pub fn status_watch(&self) -> watch::Receiver<GameStatusInfo> {
+        self.status.clone()
     }
 }
+
+
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("Team Error: {0}")]
+    Team(#[from] team::Error)
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
+
