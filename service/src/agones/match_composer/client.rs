@@ -80,7 +80,6 @@ impl MatchComposerClient {
     }
 
     /// POST /start with built-in retry logic for sidecar startup race.
-    /// Retries up to 3 times with exponential backoff (1s, 2s, 4s).
     pub async fn start(&self) -> Result<(), Error> {
         let url = self.start_url();
         

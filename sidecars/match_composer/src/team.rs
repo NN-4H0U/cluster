@@ -65,7 +65,6 @@ pub struct Team {
     status_tx: watch::Sender<TeamStatus>,
     status_rx: watch::Receiver<TeamStatus>,
     players: DashMap<Unum, PlayerWrap>,
-    agents: DashSet<Unum>,
 
     monitor_task: Option<JoinHandle<()>>,
 }
@@ -78,7 +77,6 @@ impl Team {
             status_tx,
             status_rx,
             players: DashMap::new(),
-            agents: DashSet::new(),
             monitor_task: None,
         }
     }
@@ -114,11 +112,6 @@ impl Team {
                 self.status_tx.send(TeamStatus::Error(err.clone())).ok();
                 err
             })?;
-
-            if policy.info().kind.is_agent() {
-                if self.agents.contains(&unum) { continue }
-                self.agents.insert(unum);
-            }
 
             let player = PolicyPlayer::new(policy);
             player.spawn().await.map_err(|e|Error::SpawnPlayer(format!("{e:?}")))?;
@@ -172,7 +165,6 @@ impl Team {
             let _ = player.value_mut().shutdown().await;
         }
         self.players.clear();
-        self.agents.clear();
     }
 
     fn spawn_monitor_task(
@@ -199,7 +191,13 @@ impl Team {
         }
 
         let handle = tokio::spawn(async move {
-            let mut snapshots: HashMap<Unum, ProcessStatusKind> = HashMap::new();
+            let mut snapshots: HashMap<Unum, ProcessStatusKind> = {
+                let mut map = HashMap::with_capacity(status_watches.len());
+                for (unum, rx) in status_watches.iter() {
+                    map.insert(*unum, rx.borrow().kind.clone());
+                }
+                map
+            };
 
             let mut futs: FuturesUnordered<WatchFut> = status_watches.into_iter()
                 .map(|(unum, rx)| next_change(unum, rx))

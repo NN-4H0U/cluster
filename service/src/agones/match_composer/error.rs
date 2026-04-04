@@ -1,5 +1,3 @@
-use std::fmt;
-
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     /// HTTP connection failed (e.g. connection refused, DNS error)
