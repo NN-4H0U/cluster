@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: allocator-sa
-  namespace: default
+  namespace: rcss-gateway-dev
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -18,13 +18,14 @@ rules:
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
-metadata:
-  name: allocator-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: allocator-role
+metadata:
+  name: allocator-rolebinding
+  namespace: rcss-env-dev
 subjects:
   - kind: ServiceAccount
     name: allocator-sa
-    namespace: default
+    namespace: rcss-gateway-dev

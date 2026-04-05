@@ -24,7 +24,7 @@ impl K8sClient {
     }
 
     pub async fn create_fleet_v1(&self, name: String, gs_conf: ConfigV1) -> Result<()> {
-        let api: Api<Fleet> = Api::namespaced(self.client.clone(), &self.namespace);
+        let api: Api<Fleet> = Api::namespaced(self.client.clone(), &self.agones_ns);
 
         // Convert ConfigV1 into labels & annotations
         let metadata: MetaData = gs_conf.try_into()
@@ -52,7 +52,7 @@ impl K8sClient {
     }
 
     pub async fn drop_fleet(&self, name: &str) -> Result<()> {
-        let api: Api<Fleet> = Api::namespaced(self.client.clone(), &self.namespace);
+        let api: Api<Fleet> = Api::namespaced(self.client.clone(), &self.agones_ns);
 
         match api.delete(name, &DeleteParams::default()).await {
             Ok(_) => Ok(()),

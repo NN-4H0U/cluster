@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: allocator
-  namespace: default
+  namespace: rcss-gateway
   labels:
     app: allocator
 spec:
@@ -20,7 +20,7 @@ spec:
 # kind: Service
 # metadata:
 #   name: allocator-external
-#   namespace: default
+#   namespace: rcss-gateway
 #   labels:
 #     app: allocator
 # spec:

@@ -97,7 +97,7 @@ impl K8sClient {
         scheduling: &str,
         metadata: impl TryInto<MetaData, Error: Debug>,
     ) -> Result<GsAllocation> {
-        let api: Api<GameServerAllocation> = Api::namespaced(self.client.clone(), &self.namespace);
+        let api: Api<GameServerAllocation> = Api::namespaced(self.client.clone(), &self.agones_ns);
 
         let metadata = metadata.try_into()
             .map_err(|e| Error::InvalidMetaData(format!("{e:?}")))?;
@@ -124,7 +124,7 @@ impl K8sClient {
             api_version: "allocation.agones.dev/v1".to_string(),
             kind: "GameServerAllocation".to_string(),
             metadata: ObjectMeta {
-                namespace: Some(self.namespace.to_string()),
+                namespace: Some(self.agones_ns.to_string()),
                 ..Default::default()
             },
             spec: GameServerAllocationSpec {

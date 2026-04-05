@@ -13,17 +13,17 @@ pub use allocation::GsAllocation;
 
 #[derive(Clone)]
 pub struct K8sClient {
-    namespace: ArcStr,
+    agones_ns: ArcStr,
     client: Client,
 }
 
 impl K8sClient {
-    pub async fn new(namespace: ArcStr) -> Result<Self> {
+    pub async fn new(agones_ns: ArcStr) -> Result<Self> {
         let client = Client::try_default().await
             .map_err(Error::CreateClient)?;
         
         Ok(Self {
-            namespace,
+            agones_ns,
             client,
         })
     }
