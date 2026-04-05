@@ -1,0 +1,25 @@
+[package]
+name = "match_composer"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+agones.workspace = true
+
+tokio.workspace = true
+futures.workspace = true
+axum.workspace = true
+dashmap.workspace = true
+
+log.workspace = true
+clap.workspace = true
+env_logger.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+
+async-trait = "0.1.89"
+
+common = { path = "../common" }
+allocator = { path = "../allocator" }

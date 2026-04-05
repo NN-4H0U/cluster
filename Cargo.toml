@@ -5,7 +5,8 @@ members = [
     "process",
     "server",
     "service",
-    "sidecars/match_composer"
+    "allocator",
+    "match_composer"
 ]
 resolver = "3"
 

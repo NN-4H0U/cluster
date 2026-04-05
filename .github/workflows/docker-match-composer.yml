@@ -5,7 +5,7 @@ on:
     branches: [main]
     tags: ["v*"]
     paths:
-      - "sidecars/match_composer/**"
+      - "match_composer/**"
       - "Cargo.toml"
       - "Cargo.lock"
       - "common/**"
@@ -13,7 +13,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "sidecars/match_composer/**"
+      - "match_composer/**"
       - "Cargo.toml"
       - "Cargo.lock"
       - "common/**"
@@ -63,7 +63,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./sidecars/match_composer/Dockerfile
+          file: ./match_composer/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
